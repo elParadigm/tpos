@@ -10,7 +10,7 @@
 		BarChart3,
 	} from "@lucide/svelte";
 
-	const BASE = "http://127.0.0.1:5000/api";
+	import { BASE } from '$lib/config';
 
 	let dashboard = $state(null);
 	let dailyRevenue = $state([]);
@@ -20,54 +20,61 @@
 	let customerDebts = $state([]);
 	let tab = $state("overview");
 
-	let loading = $state(false);
+	let loading = $state(true);
+	let pageError = $state('');
 
 	onMount(async () => {
 		await load();
 	});
 
 	async function load() {
-		loading = true;
-		const since30 = new Date();
-		since30.setDate(since30.getDate() - 30);
-		const sinceStr = since30.toISOString().slice(0, 10);
+		try {
+			loading = true;
+			pageError = '';
+			const since30 = new Date();
+			since30.setDate(since30.getDate() - 30);
+			const sinceStr = since30.toISOString().slice(0, 10);
 
-		const safeJson = async (url) => {
-			try {
-				const r = await fetch(url);
-				if (!r.ok) return null;
-				return r.json();
-			} catch {
-				return null;
-			}
-		};
+			const safeJson = async (url) => {
+				try {
+					const r = await fetch(url);
+					if (!r.ok) return null;
+					return r.json();
+				} catch {
+					return null;
+				}
+			};
 
-		[
-			dashboard,
-			dailyRevenue,
-			topProducts,
-			margins,
-			shiftHistory,
-			customerDebts,
-		] = await Promise.all([
-			safeJson(`${BASE}/analytics/dashboard`),
-			safeJson(
-				`${BASE}/analytics/revenue/daily?since=${sinceStr}`,
-			),
-			safeJson(
-				`${BASE}/analytics/products/top?since=${sinceStr}&sort=quantity`,
-			),
-			safeJson(`${BASE}/analytics/products/margins`),
-			safeJson(`${BASE}/analytics/shifts`),
-			safeJson(`${BASE}/customers/with-debt`),
-		]);
+			[
+				dashboard,
+				dailyRevenue,
+				topProducts,
+				margins,
+				shiftHistory,
+				customerDebts,
+			] = await Promise.all([
+				safeJson(`${BASE}/analytics/dashboard`),
+				safeJson(
+					`${BASE}/analytics/revenue/daily?since=${sinceStr}`,
+				),
+				safeJson(
+					`${BASE}/analytics/products/top?since=${sinceStr}&sort=quantity`,
+				),
+				safeJson(`${BASE}/analytics/products/margins`),
+				safeJson(`${BASE}/analytics/shifts`),
+				safeJson(`${BASE}/customers/with-debt`),
+			]);
 
-		dailyRevenue ??= [];
-		topProducts ??= [];
-		margins ??= [];
-		shiftHistory ??= [];
-		customerDebts ??= [];
-		loading = false;
+			dailyRevenue ??= [];
+			topProducts ??= [];
+			margins ??= [];
+			shiftHistory ??= [];
+			customerDebts ??= [];
+		} catch (e) {
+			pageError = 'Erreur lors du chargement des rapports';
+		} finally {
+			loading = false;
+		}
 	}
 
 	let maxRevenue = $derived(
@@ -106,6 +113,14 @@
 			Actualiser
 		</button>
 	</div>
+
+	{#if loading}
+		<div class="flex justify-center p-12">
+			<span class="loading loading-spinner loading-lg text-primary"></span>
+		</div>
+	{:else if pageError}
+		<div class="alert alert-error shadow-lg">{pageError}</div>
+	{/if}
 
 	<!-- Today snapshot -->
 	{#if dashboard}
@@ -296,7 +311,7 @@
 						class="table table-sm table-zebra w-full"
 					>
 						<thead>
-							<tr class="bg-base-200">
+							<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
 								<th>Produit</th>
 								<th
 									class="text-center"
@@ -354,7 +369,7 @@
 						class="table table-sm table-zebra w-full"
 					>
 						<thead>
-							<tr class="bg-base-200">
+							<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
 								<th>Produit</th>
 								<th
 									class="text-right"
@@ -432,7 +447,7 @@
 						>
 							<thead>
 								<tr
-									class="bg-base-200"
+									class="bg-primary text-primary-content font-bold text-base tracking-wide"
 								>
 									<th
 										>Client</th
@@ -490,7 +505,7 @@
 						class="table table-sm table-zebra w-full"
 					>
 						<thead>
-							<tr class="bg-base-200">
+							<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
 								<th>Caissier</th
 								>
 								<th>Jour</th>

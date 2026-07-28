@@ -65,7 +65,8 @@ def export_backup():
     
     try:
         shutil.copy2(db_file, destination)
-        log_action('SETTINGS', f"Sauvegarde de la base de données effectuée vers {destination}")
+        log_action('SETTINGS', f"Sauvegarde de la base de données effectuée vers {destination}",
+                    worker_id=data.get('created_by') if data else None)
         return jsonify({
             "success": True,
             "message": f"Sauvegarde réussie dans {destination}",

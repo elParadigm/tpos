@@ -9,27 +9,36 @@
 		ScanBarcode,
 	} from "@lucide/svelte";
 
-	const BASE = "http://127.0.0.1:5000/api";
+	import { BASE } from '$lib/config';
 
 	let dashboard = $state(null);
 	let lowStock = $state([]);
 	let debtors = $state([]);
+	let loading = $state(true);
+	let pageError = $state('');
 
 	onMount(async () => {
-		const [d, l, c] = await Promise.all([
-			fetch(`${BASE}/analytics/dashboard`).then((r) =>
-				r.json(),
-			),
-			fetch(`${BASE}/products/low-stock`).then((r) =>
-				r.json(),
-			),
-			fetch(`${BASE}/customers/with-debt`).then((r) =>
-				r.json(),
-			),
-		]);
-		dashboard = d;
-		lowStock = l;
-		debtors = c;
+		try {
+			const [d, l, c] = await Promise.all([
+				fetch(`${BASE}/analytics/dashboard`).then((r) =>
+					r.json(),
+				),
+				fetch(`${BASE}/products/low-stock`).then((r) =>
+					r.json(),
+				),
+				fetch(`${BASE}/customers/with-debt`).then((r) =>
+					r.json(),
+				),
+			]);
+			dashboard = d;
+			lowStock = l;
+			debtors = c;
+		} catch (e) {
+			pageError = 'Erreur de connexion au serveur';
+			console.error(e);
+		} finally {
+			loading = false;
+		}
 	});
 </script>
 
@@ -53,7 +62,13 @@
 		</a>
 	</div>
 
-	{#if dashboard}
+	{#if loading}
+		<div class="flex justify-center p-12">
+			<span class="loading loading-spinner loading-lg text-primary"></span>
+		</div>
+	{:else if pageError}
+		<div class="alert alert-error shadow-lg">{pageError}</div>
+	{:else if dashboard}
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
 			<div
 				class="stat bg-base-100 shadow-md border border-base-200 rounded-box"
@@ -154,7 +169,7 @@
 						class="table table-sm table-zebra w-full"
 					>
 						<thead>
-							<tr class="bg-base-200">
+							<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
 								<th>Produit</th>
 								<th
 									class="text-center"
@@ -220,7 +235,7 @@
 						class="table table-sm table-zebra w-full"
 					>
 						<thead>
-							<tr class="bg-base-200">
+							<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
 								<th>Client</th>
 								<th
 									class="text-right"

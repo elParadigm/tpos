@@ -18,7 +18,7 @@
 		DollarSign,
 	} from "@lucide/svelte";
 
-	const BASE = "http://127.0.0.1:5000/api";
+	import { BASE } from '$lib/config';
 
 	let cart = $state([]);
 	let searchQuery = $state("");
@@ -349,7 +349,7 @@
 			{:else}
 				<table class="table table-sm w-full">
 					<thead>
-						<tr class="bg-base-200">
+						<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
 							<th>Article</th>
 							<th class="text-right"
 								>P.U</th
@@ -437,7 +437,7 @@
 									</div>
 								</td>
 								<td
-									class="text-right font-mono font-bold text-sm"
+									class="text-right font-mono font-bold text-base tracking-wide"
 								>
 									{lineTotal(
 										item,
@@ -623,7 +623,7 @@
 						>
 							<div>
 								<span
-									class="font-bold text-sm text-base-content group-hover:text-primary line-clamp-2"
+									class="font-bold text-base tracking-wide text-base-content group-hover:text-primary line-clamp-2"
 								>
 									{product.name}
 								</span>

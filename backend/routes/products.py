@@ -32,22 +32,6 @@ def list_products():
         conn.close()
 
 
-@products_bp.route('/products/low-stock', methods=['GET'])
-def list_low_stock():
-    conn = get_db()
-    try:
-        rows = conn.execute("""
-            SELECT p.barcode, p.name, c.name AS category, p.quantity, p.min_stock, p.sell_price
-            FROM products p
-            LEFT JOIN categories c ON c.id = p.category_id
-            WHERE p.is_active = 1 AND p.quantity <= p.min_stock
-            ORDER BY (p.quantity - p.min_stock) ASC
-        """).fetchall()
-        return jsonify([dict(row) for row in rows])
-    finally:
-        conn.close()
-
-
 @products_bp.route('/products/search', methods=['GET'])
 def search_products():
     q = request.args.get('q', '')

@@ -1,13 +1,90 @@
 <script>
 	import { onMount } from "svelte";
-	import { Box, Plus, Edit, Power, X, Check } from "@lucide/svelte";
-
-	const BASE = "http://127.0.0.1:5000/api";
+	import {
+		Box,
+		Plus,
+		Edit,
+		Power,
+		X,
+		Check,
+		Search,
+		ArrowUpDown,
+	} from "@lucide/svelte";
+	import { BASE } from "$lib/config";
 
 	let products = $state([]);
 	let categories = $state([]);
 	let error = $state("");
+	let loading = $state(true);
+	let pageError = $state("");
 	let editingBarcode = $state(null);
+
+	let searchQuery = $state("");
+	let filterCategory = $state("");
+	let filterLowStock = $state(false);
+	let sortField = $state("name");
+	let sortDir = $state("asc");
+
+	let filteredProducts = $derived.by(() => {
+		let result = products;
+
+		// Search by name or barcode
+		if (searchQuery.trim()) {
+			const q = searchQuery.toLowerCase();
+			result = result.filter(
+				(p) =>
+					p.name.toLowerCase().includes(q) ||
+					(p.barcode &&
+						p.barcode
+							.toLowerCase()
+							.includes(q)),
+			);
+		}
+
+		// Filter by category
+		if (filterCategory) {
+			result = result.filter(
+				(p) => p.category_id == filterCategory,
+			);
+		}
+
+		// Filter low stock only
+		if (filterLowStock) {
+			result = result.filter(
+				(p) => p.quantity <= p.min_stock,
+			);
+		}
+
+		// Sort
+		result = [...result].sort((a, b) => {
+			let cmp = 0;
+			switch (sortField) {
+				case "name":
+					cmp = a.name.localeCompare(b.name);
+					break;
+				case "sell_price":
+					cmp =
+						(parseFloat(a.sell_price) ||
+							0) -
+						(parseFloat(b.sell_price) || 0);
+					break;
+				case "quantity":
+					cmp =
+						(a.quantity || 0) -
+						(b.quantity || 0);
+					break;
+				case "cost_price":
+					cmp =
+						(parseFloat(a.cost_price) ||
+							0) -
+						(parseFloat(b.cost_price) || 0);
+					break;
+			}
+			return sortDir === "asc" ? cmp : -cmp;
+		});
+
+		return result;
+	});
 
 	let barcode = $state("");
 	let name = $state("");
@@ -23,12 +100,20 @@
 	});
 
 	async function load() {
-		const [p, c] = await Promise.all([
-			fetch(`${BASE}/products`).then((r) => r.json()),
-			fetch(`${BASE}/categories`).then((r) => r.json()),
-		]);
-		products = p;
-		categories = c;
+		try {
+			const [p, c] = await Promise.all([
+				fetch(`${BASE}/products`).then((r) => r.json()),
+				fetch(`${BASE}/categories`).then((r) =>
+					r.json(),
+				),
+			]);
+			products = p;
+			categories = c;
+		} catch (e) {
+			pageError = "Erreur lors du chargement des produits";
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function handleSubmit() {
@@ -143,6 +228,16 @@
 			<Plus size="18" /> Nouveau Produit
 		</button>
 	</div>
+
+	{#if loading}
+		<div class="flex justify-center p-12">
+			<span
+				class="loading loading-spinner loading-lg text-primary"
+			></span>
+		</div>
+	{:else if pageError}
+		<div class="alert alert-error shadow-lg">{pageError}</div>
+	{/if}
 
 	<!-- Modal Dialog for Add/Edit -->
 	<dialog id="addProductModal" class="modal">
@@ -319,100 +414,203 @@
 		<div class="modal-backdrop" onclick={resetForm}></div>
 	</dialog>
 
+	<!-- Search & Filters -->
+	<div class="card bg-base-100 shadow-md border border-base-200 p-4">
+		<div class="flex flex-col md:flex-row gap-3 items-center">
+			<div class="relative w-full md:w-72">
+				<Search
+					class="absolute left-3 top-2.5 text-base-content/40"
+					size="16"
+				/>
+				<input
+					type="text"
+					class="input input-sm input-bordered w-full pl-9"
+					placeholder="Rechercher par nom ou code-barres..."
+					bind:value={searchQuery}
+				/>
+				{#if searchQuery}
+					<button
+						class="btn btn-xs btn-ghost absolute right-1 top-1.5"
+						onclick={() =>
+							(searchQuery = "")}
+					>
+						<X size="14" />
+					</button>
+				{/if}
+			</div>
+
+			<select
+				class="select select-sm select-bordered w-full md:w-44"
+				bind:value={filterCategory}
+			>
+				<option value="">Toutes les catégories</option>
+				{#each categories as c}
+					<option value={c.id}>{c.name}</option>
+				{/each}
+			</select>
+
+			<button
+				class="btn btn-sm {filterLowStock
+					? 'btn-error'
+					: 'btn-outline'} gap-1.5"
+				onclick={() =>
+					(filterLowStock = !filterLowStock)}
+			>
+				Stock faible {filterLowStock ? "✓" : ""}
+			</button>
+
+			<div class="flex-1"></div>
+
+			<div class="flex items-center gap-2">
+				<span
+					class="text-xs text-base-content/60 font-medium"
+					>Trier par:</span
+				>
+				<select
+					class="select select-xs select-bordered w-32"
+					bind:value={sortField}
+				>
+					<option value="name">Nom</option>
+					<option value="sell_price"
+						>Prix vente</option
+					>
+					<option value="quantity">Stock</option>
+					<option value="cost_price"
+						>Prix achat</option
+					>
+				</select>
+				<button
+					class="btn btn-xs btn-ghost"
+					onclick={() =>
+						(sortDir =
+							sortDir === "asc"
+								? "desc"
+								: "asc")}
+				>
+					<ArrowUpDown size="14" />
+					{sortDir === "asc" ? "↑" : "↓"}
+				</button>
+			</div>
+		</div>
+	</div>
+
 	<!-- Table -->
 	<div
 		class="card bg-base-100 shadow-xl border border-base-200 overflow-hidden"
 	>
 		<div class="card-body p-0">
-			<div class="overflow-x-auto">
-				<table class="table table-zebra w-full">
-					<thead>
-						<tr class="bg-base-200">
-							<th>Code-Barres</th>
-							<th>Nom Produit</th>
-							<th>Catégorie</th>
-							<th>Prix d'Achat</th>
-							<th>Prix de Vente</th>
-							<th>Stock</th>
-							<th>Alerte Min</th>
-							<th class="text-center"
-								>Actions</th
-							>
-						</tr>
-					</thead>
-					<tbody>
-						{#each products as p}
-							<tr
-								class={p.is_active
-									? "hover"
-									: "opacity-40 bg-base-200"}
-							>
-								<td
-									class="font-mono text-xs font-bold"
-									>{p.barcode}</td
+			{#if filteredProducts.length > 0}
+				<div class="overflow-x-auto">
+					<table class="table w-full">
+						<thead>
+							<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
+								<th
+									>Code-Barres</th
 								>
-								<td
-									class="font-bold"
-									>{p.name}</td
+								<th
+									>Nom
+									Produit</th
 								>
-								<td
-									><span
-										class="badge badge-ghost font-medium"
-										>{p.category ??
-											"-"}</span
-									></td
+								<th
+									>Catégorie</th
 								>
-								<td
-									class="font-mono text-sm"
-									>{parseFloat(
-										p.cost_price,
-									).toFixed(
-										3,
-									)} DT</td
+								<th
+									>Prix
+									d'Achat</th
 								>
-								<td
-									class="font-mono text-sm font-bold text-success"
-									>{parseFloat(
-										p.sell_price,
-									).toFixed(
-										3,
-									)} DT</td
+								<th
+									>Prix de
+									Vente</th
 								>
-								<td>
-									<span
-										class="badge {p.quantity <=
-										p.min_stock
-											? 'badge-error text-white font-bold'
-											: 'badge-success text-white font-bold'}"
-									>
-										{p.quantity}
-									</span>
-								</td>
-								<td
-									class="font-mono text-xs text-center"
-									>{p.min_stock}</td
+								<th>Stock</th>
+								<th
+									>Alerte
+									Min</th
 								>
-								<td
-									class="flex justify-center gap-1"
+								<th
+									class="text-center"
+									>Actions</th
 								>
-									<button
-										class="btn btn-xs btn-outline font-semibold gap-1"
-										onclick={() =>
-											startEdit(
-												p,
-											)}
-									>
-										<Edit
-											size="12"
-										/>
-										Modifier
-									</button>
-								</td>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+						</thead>
+						<tbody>
+							{#each filteredProducts as p}
+								<tr>
+									<td
+										class="font-mono text-xs font-bold"
+										>{p.barcode}</td
+									>
+									<td
+										class="font-bold"
+										>{p.name}</td
+									>
+									<td
+										><span
+											class="badge badge-ghost font-medium"
+											>{p.category ??
+												"-"}</span
+										></td
+									>
+									<td
+										class="font-mono text-sm"
+										>{parseFloat(
+											p.cost_price,
+										).toFixed(
+											3,
+										)}
+										DT</td
+									>
+									<td
+										class="font-mono text-sm font-bold text-success"
+										>{parseFloat(
+											p.sell_price,
+										).toFixed(
+											3,
+										)}
+										DT</td
+									>
+									<td>
+										<span
+											class="badge {p.quantity <=
+											p.min_stock
+												? 'badge-error text-white font-bold'
+												: 'badge-success text-white font-bold'}"
+										>
+											{p.quantity}
+										</span>
+									</td>
+									<td
+										class="font-mono text-xs text-center"
+										>{p.min_stock}</td
+									>
+									<td
+										class="flex justify-center gap-1"
+									>
+										<button
+											class="btn btn-xs btn-outline font-semibold gap-1"
+											onclick={() =>
+												startEdit(
+													p,
+												)}
+										>
+											<Edit
+												size="12"
+											/>
+											Modifier
+										</button>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else}
+				<div
+					class="p-12 text-center text-base-content/40"
+				>
+					Aucun produit enregistré
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>

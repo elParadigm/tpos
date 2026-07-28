@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr" data-theme="corporate">
 
 <head>
 	<meta charset="utf-8" />
@@ -7,6 +7,56 @@
 	<meta name="text-scale" content="scale" />
 	<link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet" />
 	<script src="https://cdn.tailwindcss.com"></script>
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					fontSize: {
+						sm: ['0.9rem', {lineHeight: '1.5rem'}],
+						base: ['1.1rem', {lineHeight: '1.7rem'}],
+						lg: ['1.25rem', {lineHeight: '1.8rem'}],
+						xl: ['1.4rem', {lineHeight: '1.9rem'}],
+					}
+				}
+			}
+		}
+	</script>
+	<style>
+		html {
+			font-size: 17px;
+		}
+
+		body {
+			font-size: 1rem;
+		}
+
+		.table {
+			font-size: 0.95rem;
+		}
+
+		.btn {
+			font-size: 0.95rem;
+		}
+
+		.input,
+		.select,
+		.textarea {
+			font-size: 0.95rem;
+		}
+
+		.badge {
+			font-size: 0.85rem;
+		}
+
+		.stat-value {
+			font-size: 2rem;
+		}
+
+		.card-title {
+			font-size: 1.15rem;
+		}
+
+	</style>
 	%sveltekit.head%
 </head>
 

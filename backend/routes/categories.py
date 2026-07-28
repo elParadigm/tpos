@@ -6,10 +6,13 @@ categories_bp = Blueprint('categories', __name__)
 
 @categories_bp.route('/categories', methods=['GET'])
 def list_categories():
-    db = get_db()
-    rows = db.execute(
-        "SELECT id, name, description FROM categories ORDER BY name ASC").fetchall()
-    return jsonify([dict(row) for row in rows])
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, name, description FROM categories ORDER BY name ASC").fetchall()
+        return jsonify([dict(row) for row in rows])
+    finally:
+        conn.close()
 
 
 @categories_bp.route('/categories', methods=['POST'])
@@ -30,16 +33,26 @@ def create_category():
 @categories_bp.route('/categories/<int:id>', methods=['PUT'])
 def update_category(id):
     data = request.get_json()
-    db = get_db()
-    db.execute("UPDATE categories SET name = ?, description = ? WHERE id = ?",
-               [data['name'], data.get('description'), id])
-    db.commit()
-    return jsonify({'message': 'updated'})
+    conn = get_db()
+    try:
+        conn.execute("UPDATE categories SET name = ?, description = ? WHERE id = ?",
+                     [data['name'], data.get('description'), id])
+        conn.commit()
+        return jsonify({'message': 'updated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    finally:
+        conn.close()
 
 
 @categories_bp.route('/categories/<int:id>', methods=['DELETE'])
 def delete_category(id):
-    db = get_db()
-    db.execute("DELETE FROM categories WHERE id = ?", [id])
-    db.commit()
-    return jsonify({'message': 'deleted'})
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM categories WHERE id = ?", [id])
+        conn.commit()
+        return jsonify({'message': 'deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    finally:
+        conn.close()

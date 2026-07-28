@@ -98,7 +98,8 @@ def create_sale():
                 """, [sale_id, item['custom_name'], item.get('custom_cost'),
                       item['quantity'], item['unit_price'], item.get('discount', 0)])
         conn.commit()
-        log_action('SALE', f"Vente #{sale_id} effectuée pour un montant total de {data['total']} DT (Méthode: {data.get('payment_method', 'cash')})")
+        log_action('SALE', f"Vente #{sale_id} effectuée pour un montant total de {data['total']} DT (Méthode: {data.get('payment_method', 'cash')})",
+                    worker_id=data.get('created_by'))
         return jsonify({'message': 'created', 'id': sale_id, 'sale_id': sale_id}), 201
     except Exception as e:
         conn.rollback()
@@ -111,10 +112,22 @@ def create_sale():
 def delete_sale(id):
     conn = get_db()
     try:
+        # Restore product stock before deleting
+        items = conn.execute(
+            "SELECT barcode, quantity FROM sale_items WHERE sale_id = ? AND barcode IS NOT NULL",
+            [id]
+        ).fetchall()
+        for item in items:
+            conn.execute(
+                "UPDATE products SET quantity = quantity + ? WHERE barcode = ?",
+                [item['quantity'], item['barcode']]
+            )
+
         conn.execute("DELETE FROM sales WHERE id = ?", [id])
         conn.commit()
         return jsonify({'message': 'deleted'})
     except Exception as e:
+        conn.rollback()
         return jsonify({'error': str(e)}), 400
     finally:
         conn.close()

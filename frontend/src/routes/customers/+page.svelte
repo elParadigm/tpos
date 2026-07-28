@@ -11,12 +11,14 @@
 		Check,
 	} from "@lucide/svelte";
 
-	const BASE = "http://127.0.0.1:5000/api";
+	import { BASE } from '$lib/config';
 
 	let customers = $state([]);
 	let debtors = $state([]);
 	let tab = $state("all");
 	let error = $state("");
+	let loading = $state(true);
+	let pageError = $state("");
 
 	let name = $state("");
 	let phone = $state("");
@@ -37,14 +39,22 @@
 	});
 
 	async function load() {
-		const [c, d] = await Promise.all([
-			fetch(`${BASE}/customers`).then((r) => r.json()),
-			fetch(`${BASE}/customers/with-debt`).then((r) =>
-				r.json(),
-			),
-		]);
-		customers = c;
-		debtors = d;
+		try {
+			pageError = '';
+			loading = true;
+			const [c, d] = await Promise.all([
+				fetch(`${BASE}/customers`).then((r) => r.json()),
+				fetch(`${BASE}/customers/with-debt`).then((r) =>
+					r.json(),
+				),
+			]);
+			customers = c;
+			debtors = d;
+		} catch (e) {
+			pageError = 'Erreur lors du chargement des clients';
+		} finally {
+			loading = false;
+		}
 	}
 
 	function openNewCustomerModal() {
@@ -163,6 +173,14 @@
 		</button>
 	</div>
 
+	{#if loading}
+		<div class="flex justify-center p-12">
+			<span class="loading loading-spinner loading-lg text-primary"></span>
+		</div>
+	{:else if pageError}
+		<div class="alert alert-error shadow-lg">{pageError}</div>
+	{/if}
+
 	<!-- Tabs -->
 	<div
 		role="tablist"
@@ -194,6 +212,13 @@
 		</button>
 	</div>
 
+	{#if loading}
+		<div class="flex justify-center p-12">
+			<span class="loading loading-spinner loading-lg text-primary"></span>
+		</div>
+	{:else if pageError}
+		<div class="alert alert-error shadow-lg">{pageError}</div>
+	{:else}
 	{#if tab === "all"}
 		<div
 			class="card bg-base-100 shadow-xl border border-base-200 overflow-hidden"
@@ -209,11 +234,11 @@
 				{:else}
 					<div class="overflow-x-auto">
 						<table
-							class="table table-zebra w-full"
+							class="table  w-full"
 						>
 							<thead>
 								<tr
-									class="bg-base-200"
+									class="bg-primary text-primary-content font-bold text-base tracking-wide"
 								>
 									<th
 										>Nom
@@ -312,11 +337,11 @@
 				{:else}
 					<div class="overflow-x-auto">
 						<table
-							class="table table-zebra w-full"
+							class="table  w-full"
 						>
 							<thead>
 								<tr
-									class="bg-base-200"
+									class="bg-primary text-primary-content font-bold text-base tracking-wide"
 								>
 									<th
 										>Nom
@@ -390,6 +415,7 @@
 				{/if}
 			</div>
 		</div>
+	{/if}
 	{/if}
 </div>
 
@@ -579,7 +605,7 @@
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 				<div class="card bg-base-200 p-3">
 					<h4
-						class="font-bold text-sm mb-2 text-error"
+						class="font-bold text-base tracking-wide mb-2 text-error"
 					>
 						Ventes à Crédit
 					</h4>
@@ -620,7 +646,7 @@
 
 				<div class="card bg-base-200 p-3">
 					<h4
-						class="font-bold text-sm mb-2 text-success"
+						class="font-bold text-base tracking-wide mb-2 text-success"
 					>
 						Règlements Effectués
 					</h4>

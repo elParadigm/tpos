@@ -3,11 +3,13 @@
 	import { Warehouse, Plus, X, Check, CreditCard } from "@lucide/svelte";
 	import { currentWorker } from "$lib/auth";
 
-	const BASE = "http://127.0.0.1:5000/api";
+	import { BASE } from '$lib/config';
 
 	let products = $state([]);
 	let suppliers = $state([]);
 	let unpaid = $state([]);
+	let loading = $state(true);
+	let pageError = $state('');
 
 	let isDeliveryModalOpen = $state(false);
 
@@ -26,7 +28,6 @@
 
 	let error = $state("");
 	let success = $state("");
-
 	let payingEntry = $state(null);
 	let paymentAmount = $state("");
 	let paymentNotes = $state("");
@@ -52,11 +53,18 @@
 	);
 
 	onMount(async () => {
-		await Promise.all([
-			loadProducts(),
-			loadSuppliers(),
-			loadUnpaid(),
-		]);
+		try {
+			await Promise.all([
+				loadProducts(),
+				loadSuppliers(),
+				loadUnpaid(),
+			]);
+		} catch (e) {
+			pageError = 'Erreur de connexion au serveur';
+			console.error(e);
+		} finally {
+			loading = false;
+		}
 
 		// Close dropdown when clicking outside
 		const handleClickOutside = (e) => {
@@ -244,6 +252,14 @@
 </script>
 
 <div class="p-6 mx-auto space-y-6">
+	{#if loading}
+		<div class="flex justify-center p-12">
+			<span class="loading loading-spinner loading-lg text-primary"></span>
+		</div>
+	{:else if pageError}
+		<div class="alert alert-error shadow-lg">{pageError}</div>
+	{/if}
+
 	<!-- Page Header -->
 	<div
 		class="flex flex-col md:flex-row md:items-center justify-between gap-4"
@@ -288,7 +304,7 @@
 				</div>
 			{:else}
 				<div class="overflow-x-auto">
-					<table class="table table-zebra w-full">
+					<table class="table  w-full">
 						<thead>
 							<tr>
 								<th
@@ -628,7 +644,7 @@
 			<!-- Table Items -->
 			{#if items.length > 0}
 				<div class="overflow-x-auto mb-6">
-					<table class="table table-zebra w-full">
+					<table class="table  w-full">
 						<thead>
 							<tr>
 								<th>Produit</th>

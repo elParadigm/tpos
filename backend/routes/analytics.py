@@ -57,7 +57,14 @@ def monthly_revenue():
 def top_products():
     since = request.args.get('since')
     sort = request.args.get('sort', 'quantity')
-    order_col = 'units_sold' if sort == 'quantity' else 'revenue'
+
+    # Allowlist for ORDER BY — never interpolate user input directly
+    order_clauses = {
+        'quantity': 'units_sold DESC',
+        'revenue': 'revenue DESC',
+    }
+    order_col = order_clauses.get(sort, 'units_sold DESC')
+
     conn = get_db()
     try:
         rows = conn.execute(f"""
@@ -69,7 +76,7 @@ def top_products():
             JOIN sales s ON s.id = si.sale_id
             WHERE s.sale_date >= ?
             GROUP BY si.barcode, si.custom_name
-            ORDER BY {order_col} DESC LIMIT 10
+            ORDER BY {order_col} LIMIT 10
         """, [since]).fetchall()
         return jsonify([dict(row) for row in rows])
     finally:

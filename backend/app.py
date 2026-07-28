@@ -7,7 +7,6 @@ from routes.products import products_bp
 from routes.stock import stock_bp
 from routes.customers import customers_bp
 from routes.workers import workers_bp
-from routes.shifts import shifts_bp
 from routes.sales import sales_bp
 from routes.analytics import analytics_bp
 from routes.settings import settings_bp
@@ -23,7 +22,6 @@ app.register_blueprint(products_bp,   url_prefix='/api')
 app.register_blueprint(stock_bp,      url_prefix='/api')
 app.register_blueprint(customers_bp,  url_prefix='/api')
 app.register_blueprint(workers_bp,    url_prefix='/api')
-app.register_blueprint(shifts_bp,     url_prefix='/api')
 app.register_blueprint(sales_bp,      url_prefix='/api')
 app.register_blueprint(analytics_bp,  url_prefix='/api')
 app.register_blueprint(settings_bp,   url_prefix='/api')

@@ -8,7 +8,13 @@ stock_bp = Blueprint('stock', __name__)
 # AUDIT LOG HELPER
 # ------------------------------------------------------------
 
-def log_audit(conn, action_type, description, worker_name=None):
+def log_audit(conn, action_type, description, worker_name=None, worker_id=None):
+    # Lookup worker name from ID if name not given directly
+    if not worker_name and worker_id:
+        row = conn.execute(
+            "SELECT name FROM workers WHERE id = ?", [worker_id]
+        ).fetchone()
+        worker_name = row['name'] if row else None
     conn.execute("""
         INSERT INTO audit_logs (
             action_type,
@@ -231,7 +237,7 @@ def create_delivery():
                 "STOCK",
                 f"Réception de {item['quantity']} unités de {
                     product['name'] if product else item['barcode']}",
-                data.get("created_by")
+                worker_id=data.get("created_by")
             )
 
         conn.commit()
@@ -283,7 +289,7 @@ def add_delivery_payment(id):
             conn,
             "STOCK",
             f"Paiement fournisseur enregistré: {data['amount']}",
-            data.get("created_by")
+            worker_id=data.get("created_by")
         )
 
         conn.commit()

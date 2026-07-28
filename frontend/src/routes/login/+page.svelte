@@ -3,7 +3,7 @@
     import { currentWorker } from '$lib/auth';
     import { Delete, LogIn, Lock } from '@lucide/svelte';
 
-    const BASE = 'http://127.0.0.1:5000/api';
+    import { BASE } from '$lib/config';
 
     let pin = $state('');
     let error = $state('');

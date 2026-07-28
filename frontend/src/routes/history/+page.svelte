@@ -10,7 +10,7 @@
 		Search,
 	} from "@lucide/svelte";
 
-	const BASE = "http://127.0.0.1:5000/api";
+	import { BASE } from '$lib/config';
 
 	let logs = $state([]);
 	let loading = $state(true);
@@ -71,6 +71,21 @@
 				return "badge-secondary";
 			default:
 				return "badge-ghost";
+		}
+	}
+
+	function getActionLabel(type) {
+		switch (type) {
+			case "SALE":
+				return "Vente";
+			case "SETTINGS":
+				return "Configuration";
+			case "STOCK":
+				return "Stock";
+			case "PRODUCT":
+				return "Produit";
+			default:
+				return type;
 		}
 	}
 
@@ -194,7 +209,7 @@
 			<div class="overflow-x-auto">
 				<table class="table table-zebra w-full">
 					<thead>
-						<tr class="bg-base-200">
+						<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
 							<th class="w-48"
 								>Date & Heure</th
 							>
@@ -226,7 +241,7 @@
 											log.action_type,
 										)} font-bold text-xs"
 									>
-										{log.action_type}
+										{getActionLabel(log.action_type)}
 									</span>
 								</td>
 								<td

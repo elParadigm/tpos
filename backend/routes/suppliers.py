@@ -22,17 +22,17 @@ def list_suppliers_with_debt():
         rows = conn.execute("""
             SELECT
                 s.id, s.name, s.phone,
-                COALESCE(SUM(se.amount_due), 0)
-                    - COALESCE(SUM(se.amount_paid), 0)
-                    - COALESCE(SUM(sp.paid), 0) AS remaining_debt
+                COALESCE(SUM(d.amount_due - d.amount_paid), 0)
+                    - COALESCE(sp.total_paid, 0) AS remaining_debt
             FROM suppliers s
-            LEFT JOIN stock_entries se ON se.supplier_id = s.id
+            LEFT JOIN deliveries d ON d.supplier_id = s.id
             LEFT JOIN (
-                SELECT stock_entry_id, SUM(amount) AS paid
+                SELECT delivery_id, SUM(amount) AS total_paid
                 FROM supplier_payments
-                GROUP BY stock_entry_id
-            ) sp ON sp.stock_entry_id = se.id
+                GROUP BY delivery_id
+            ) sp ON sp.delivery_id = d.id
             GROUP BY s.id
+            HAVING remaining_debt > 0
             ORDER BY remaining_debt DESC
         """).fetchall()
         return jsonify([dict(row) for row in rows])

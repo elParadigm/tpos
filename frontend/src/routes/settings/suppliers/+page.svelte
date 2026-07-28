@@ -2,7 +2,7 @@
 	import { onMount } from "svelte";
 	import { Van, Plus, Edit, Trash2, X, Check } from "@lucide/svelte";
 
-	const BASE = "http://127.0.0.1:5000/api";
+	import { BASE } from '$lib/config';
 
 	let suppliers = $state([]);
 	let name = $state("");
@@ -11,6 +11,8 @@
 	let notes = $state("");
 	let editingId = $state(null);
 	let error = $state("");
+	let loading = $state(true);
+	let pageError = $state("");
 	let isModalOpen = $state(false);
 
 	onMount(async () => {
@@ -18,8 +20,14 @@
 	});
 
 	async function load() {
-		const res = await fetch(`${BASE}/suppliers`);
-		suppliers = await res.json();
+		try {
+			const res = await fetch(`${BASE}/suppliers`);
+			suppliers = await res.json();
+		} catch (e) {
+			pageError = 'Erreur lors du chargement des fournisseurs';
+		} finally {
+			loading = false;
+		}
 	}
 
 	function openNewModal() {
@@ -114,6 +122,14 @@
 			<Plus size="18" /> Nouveau Fournisseur
 		</button>
 	</div>
+
+	{#if loading}
+		<div class="flex justify-center p-12">
+			<span class="loading loading-spinner loading-lg text-primary"></span>
+		</div>
+	{:else if pageError}
+		<div class="alert alert-error shadow-lg">{pageError}</div>
+	{/if}
 
 	<!-- Modal -->
 	{#if isModalOpen}
@@ -223,10 +239,11 @@
 		class="card bg-base-100 shadow-xl border border-base-200 overflow-hidden"
 	>
 		<div class="card-body p-0">
-			<div class="overflow-x-auto">
-				<table class="table table-zebra w-full">
+			{#if suppliers.length > 0}
+				<div class="overflow-x-auto">
+				<table class="table  w-full">
 					<thead>
-						<tr class="bg-base-200">
+						<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
 							<th>Nom Fournisseur</th>
 							<th>Téléphone</th>
 							<th>Adresse</th>
@@ -237,7 +254,7 @@
 					</thead>
 					<tbody>
 						{#each suppliers as s}
-							<tr class="hover">
+							<tr class="bg-white hover:bg-base-200">
 								<td
 									class="font-bold"
 									>{s.name}</td
@@ -284,7 +301,13 @@
 						{/each}
 					</tbody>
 				</table>
-			</div>
-		</div>
+				</div>
+				
+			{:else}
+				<div class="p-12 text-center text-base-content/40">
+					Aucun fournisseur enregistré pour le moment
+				</div>
+			{/if}
 	</div>
+</div>
 </div>

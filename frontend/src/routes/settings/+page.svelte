@@ -11,7 +11,7 @@
 		RefreshCw,
 	} from "@lucide/svelte";
 
-	const BASE = "http://127.0.0.1:5000/api";
+	import { BASE } from '$lib/config';
 
 	let settings = $state({
 		store_name: "",

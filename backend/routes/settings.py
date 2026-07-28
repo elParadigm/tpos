@@ -17,26 +17,34 @@ DEFAULT_SETTINGS = {
 
 @settings_bp.route('/settings', methods=['GET'])
 def get_settings():
-    db = get_db()
-    rows = db.execute("SELECT key, value FROM settings").fetchall()
-    
-    settings = dict(DEFAULT_SETTINGS)
-    for row in rows:
-        settings[row['key']] = row['value']
-        
-    return jsonify(settings)
+    conn = get_db()
+    try:
+        rows = conn.execute("SELECT key, value FROM settings").fetchall()
+
+        settings = dict(DEFAULT_SETTINGS)
+        for row in rows:
+            settings[row['key']] = row['value']
+
+        return jsonify(settings)
+    finally:
+        conn.close()
 
 @settings_bp.route('/settings', methods=['POST', 'PUT'])
 def update_settings():
     data = request.json or {}
-    db = get_db()
-    
-    for key, value in data.items():
-        db.execute(
-            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-            (str(key), str(value))
-        )
-    
-    db.commit()
-    log_action('SETTINGS', 'Mise à jour de la configuration du magasin et des paramètres d\'impression')
-    return jsonify({"success": True, "message": "Paramètres enregistrés avec succès"})
+    conn = get_db()
+    try:
+        for key, value in data.items():
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (str(key), str(value))
+            )
+
+        conn.commit()
+        log_action('SETTINGS', 'Mise à jour de la configuration du magasin et des paramètres d\'impression',
+                worker_id=data.get('created_by'))
+        return jsonify({"success": True, "message": "Paramètres enregistrés avec succès"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
