@@ -27,6 +27,9 @@
 	let loading = $state(true);
 	let saving = $state(false);
 	let backingUp = $state(false);
+	let restoring = $state(false);
+	let backups = $state([]);
+	let showBackups = $state(false);
 	let usbDrives = $state([]);
 	let toastMessage = $state("");
 	let toastType = $state("success");
@@ -88,6 +91,42 @@
 			backingUp = false;
 			checkUsbDrives();
 		}
+	}
+
+	async function listBackups() {
+		showBackups = !showBackups;
+		if (!showBackups) return;
+		backups = [];
+		try {
+			const res = await fetch(`${BASE}/backup/list`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			});
+			const data = await res.json();
+			if (res.ok) backups = data.backups || [];
+			else showToast(data.error || "Erreur", "error");
+		} catch { showToast("Erreur de connexion", "error"); }
+	}
+
+	async function triggerRestore(backupPath) {
+		if (!confirm("Voulez-vous vraiment restaurer cette sauvegarde ?\n\nLa base de données actuelle sera remplacée. Une sauvegarde de sécurité sera créée automatiquement.")) return;
+		restoring = true;
+		try {
+			const res = await fetch(`${BASE}/backup/restore`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ backup_path: backupPath }),
+			});
+			const data = await res.json();
+			if (res.ok && data.success) {
+				showToast(data.message, "success");
+				showBackups = false;
+			} else {
+				showToast(data.error || "Erreur", "error");
+			}
+		} catch { showToast("Erreur de connexion", "error"); }
+		finally { restoring = false; }
 	}
 
 	async function saveSettings() {
@@ -341,6 +380,39 @@
 								CLÉ USB
 							{/if}
 						</button>
+
+						<button class="btn btn-outline btn-block gap-2 mt-2"
+							onclick={listBackups} disabled={restoring}>
+							{#if restoring}
+								<span class="loading loading-spinner loading-sm"></span>
+								Restauration en cours...
+							{:else}
+								<HardDrive size="18" /> {showBackups ? "Masquer" : "Voir les Sauvegardes"}
+							{/if}
+						</button>
+
+						{#if showBackups}
+							<div class="mt-3 border border-base-300 rounded-lg overflow-hidden">
+								{#if backups.length === 0}
+									<div class="p-4 text-center text-base-content/40 text-sm">Aucune sauvegarde trouvée sur la clé USB.</div>
+								{:else}
+									<div class="divide-y divide-base-200 max-h-60 overflow-y-auto">
+										{#each backups as b}
+											<div class="flex items-center justify-between px-3 py-2.5 hover:bg-base-200">
+												<div class="min-w-0 flex-1">
+													<p class="text-sm font-medium truncate">{b.filename}</p>
+													<p class="text-xs text-base-content/50">{b.date} · {(b.size / 1024).toFixed(0)} Ko</p>
+												</div>
+												<button class="btn btn-sm btn-warning gap-1.5 font-bold"
+													onclick={() => triggerRestore(b.path)}>
+													<RefreshCw size="14" /> Restaurer
+												</button>
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				</div>
 

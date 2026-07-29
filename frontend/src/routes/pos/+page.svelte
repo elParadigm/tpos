@@ -149,12 +149,15 @@
 	);
 
 	function addToCart(product) {
+		const stock = parseInt(product.quantity);
+		if (isNaN(stock) || stock < 1) return;
 		const existingIndex = cart.findIndex(
 			(i) =>
 				i.barcode === product.barcode &&
 				product.barcode !== null,
 		);
 		if (existingIndex !== -1) {
+			if (cart[existingIndex].quantity >= stock) return;
 			cart[existingIndex].quantity += 1;
 			cart = [...cart];
 		} else {
@@ -168,6 +171,7 @@
 					),
 					quantity: 1,
 					discount: 0,
+					max_stock: stock,
 				},
 			];
 		}
@@ -198,7 +202,9 @@
 	}
 
 	function incrementQty(index) {
-		cart[index].quantity += 1;
+		const item = cart[index];
+		if (item.max_stock && item.quantity >= item.max_stock) return;
+		item.quantity += 1;
 		cart = [...cart];
 	}
 
@@ -215,10 +221,15 @@
 		const n = parseInt(value);
 		if (!n || n < 1) {
 			removeFromCart(index);
-		} else {
-			cart[index].quantity = n;
-			cart = [...cart];
+			return;
 		}
+		const item = cart[index];
+		if (item.max_stock && n > item.max_stock) {
+			item.quantity = item.max_stock;
+		} else {
+			item.quantity = n;
+		}
+		cart = [...cart];
 	}
 
 	function removeFromCart(index) {
@@ -261,27 +272,30 @@
 				body: JSON.stringify(salePayload),
 			});
 
-			if (res.ok) {
-				const responseData = await res.json();
-				lastCompletedSale = {
-					id:
-						responseData.sale_id ||
-						responseData.id ||
-						Date.now(),
-					date: new Date().toLocaleString(
-						"fr-FR",
-					),
-					items: [...cart],
-					subtotal: subtotal,
-					discount: discount,
-					total: total,
-					paymentMethod: paymentMethod,
-					workerName:
-						$currentWorker?.name ||
-						"Caisse",
-				};
-				showReceiptModal = true;
+			const responseData = await res.json();
+
+			if (!res.ok) {
+				if (res.status === 409) {
+					alert("Stock insuffisant:\n" + (responseData.details || []).join("\n"));
+				} else {
+					alert(responseData.error || "Erreur lors de la vente");
+				}
+				return;
 			}
+
+			lastCompletedSale = {
+				id: responseData.sale_id || responseData.id || Date.now(),
+				date: new Date().toLocaleString("fr-FR"),
+				items: [...cart],
+				subtotal: subtotal,
+				discount: discount,
+				total: total,
+				paymentMethod: paymentMethod,
+				workerName: $currentWorker?.name || "Caisse",
+			};
+			showReceiptModal = true;
+			// Refresh product stock display
+			loadProducts(selectedCategory);
 		} catch (e) {
 			console.error("Sale failed", e);
 		}
@@ -349,7 +363,7 @@
 			{:else}
 				<table class="table table-sm w-full">
 					<thead>
-						<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
+						<tr class="">
 							<th>Article</th>
 							<th class="text-right"
 								>P.U</th

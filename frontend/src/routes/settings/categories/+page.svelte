@@ -127,7 +127,7 @@
 					<div class="overflow-x-auto">
 						<table class="table  w-full">
 							<thead>
-								<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
+								<tr class="">
 									<th>Nom de la Catégorie</th>
 									<th>Description</th>
 									<th class="text-center">Actions</th>

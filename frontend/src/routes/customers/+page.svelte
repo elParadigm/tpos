@@ -238,7 +238,7 @@
 						>
 							<thead>
 								<tr
-									class="bg-primary text-primary-content font-bold text-base tracking-wide"
+									class=""
 								>
 									<th
 										>Nom
@@ -341,7 +341,7 @@
 						>
 							<thead>
 								<tr
-									class="bg-primary text-primary-content font-bold text-base tracking-wide"
+									class=""
 								>
 									<th
 										>Nom

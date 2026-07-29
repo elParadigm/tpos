@@ -209,7 +209,7 @@
 			<div class="overflow-x-auto">
 				<table class="table table-zebra w-full">
 					<thead>
-						<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
+						<tr class="">
 							<th class="w-48"
 								>Date & Heure</th
 							>

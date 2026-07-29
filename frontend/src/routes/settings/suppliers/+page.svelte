@@ -243,7 +243,7 @@
 				<div class="overflow-x-auto">
 				<table class="table  w-full">
 					<thead>
-						<tr class="bg-primary text-primary-content font-bold text-base tracking-wide">
+						<tr class="">
 							<th>Nom Fournisseur</th>
 							<th>Téléphone</th>
 							<th>Adresse</th>

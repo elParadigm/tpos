@@ -12,6 +12,8 @@ from routes.analytics import analytics_bp
 from routes.settings import settings_bp
 from routes.history import history_bp
 from routes.backup import backup_bp
+from routes.system import system_bp
+from routes.reports import reports_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -27,6 +29,8 @@ app.register_blueprint(analytics_bp,  url_prefix='/api')
 app.register_blueprint(settings_bp,   url_prefix='/api')
 app.register_blueprint(history_bp,    url_prefix='/api')
 app.register_blueprint(backup_bp,     url_prefix='/api')
+app.register_blueprint(system_bp,     url_prefix='/api')
+app.register_blueprint(reports_bp,    url_prefix='/api')
 
 init_db()
 

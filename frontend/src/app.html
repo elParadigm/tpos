@@ -6,56 +6,81 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<meta name="text-scale" content="scale" />
 	<link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet" />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 	<script src="https://cdn.tailwindcss.com"></script>
 	<script>
 		tailwind.config = {
 			theme: {
 				extend: {
+					fontFamily: {
+						sans: ['Inter', 'system-ui', 'sans-serif'],
+						mono: ['Inter', 'system-ui', 'sans-serif'],
+					},
 					fontSize: {
-						sm: ['0.9rem', {lineHeight: '1.5rem'}],
-						base: ['1.1rem', {lineHeight: '1.7rem'}],
-						lg: ['1.25rem', {lineHeight: '1.8rem'}],
-						xl: ['1.4rem', {lineHeight: '1.9rem'}],
+						xs: ['0.8rem', { lineHeight: '1.2rem' }],
+						sm: ['0.9rem', { lineHeight: '1.4rem' }],
+						base: ['1.05rem', { lineHeight: '1.6rem' }],
+						lg: ['1.2rem', { lineHeight: '1.7rem' }],
+						xl: ['1.4rem', { lineHeight: '1.8rem' }],
+						'2xl': ['1.6rem', { lineHeight: '2rem' }],
 					}
 				}
 			}
 		}
 	</script>
 	<style>
-		html {
-			font-size: 17px;
-		}
+		html { font-size: 18px; }
+		html, body, .btn, .input, .select, .textarea, .badge, .card, .card-body, .card-title,
+.navbar, .menu, .drawer, .modal-box, .table, .table th, .table td, .stat, .stat-value,
+.stat-title, .stat-desc, .label, .tab, .tabs, .alert, .badge, .btn-primary, .btn-ghost,
+.btn-outline, .btn-error, .btn-success, .btn-info, .btn-warning, button, input, select,
+textarea, th, td, .menu-title, .menu li a, .menu li button, .drawer-side, .modal,
+.modal-backdrop, .form-control, .join, .join-item, .kiosk-bar,
+div, span, p, h1, h2, h3, h4, h5, h6, a, strong, small, label, li, ul, ol, section,
+main, aside, header, footer, nav, article, .no-print, .only-print, .font-bold, .font-medium,
+.font-semibold, .font-extrabold, .font-black, .font-mono, .uppercase, .capitalize, .tracking-wide {
+	font-family: "Inter", system-ui, sans-serif !important;
+}
 
-		body {
-			font-size: 1rem;
-		}
+		.btn { font-size: 0.95rem; padding: 0.5rem 1rem; min-height: 2.5rem; }
+		.btn-xs { font-size: 0.8rem; padding: 0.2rem 0.6rem; min-height: 1.8rem; }
+		.btn-sm { font-size: 0.85rem; padding: 0.35rem 0.8rem; min-height: 2.1rem; }
+		.btn-lg { font-size: 1.05rem; padding: 0.6rem 1.2rem; min-height: 3rem; }
 
-		.table {
-			font-size: 0.95rem;
-		}
+		.input, .select, .textarea { font-size: 0.95rem; padding: 0.5rem 0.75rem; min-height: 2.5rem; }
+		.input-sm, .select-sm { font-size: 0.85rem; min-height: 2.1rem; }
+		.input-xs { font-size: 0.8rem; min-height: 1.8rem; }
 
-		.btn {
-			font-size: 0.95rem;
-		}
+		.table { font-size: 0.95rem; }
+		.table th { font-size: 0.85rem; letter-spacing: 0.03em; padding: 0.7rem 0.75rem !important; }
+		.table td { padding: 0.65rem 0.75rem !important; }
 
-		.input,
-		.select,
-		.textarea {
-			font-size: 0.95rem;
-		}
+		.badge { font-size: 0.8rem; padding: 0.2rem 0.6rem; min-height: 1.5rem; }
+		.badge-sm { font-size: 0.7rem; }
 
-		.badge {
-			font-size: 0.85rem;
-		}
+		.stat-value { font-size: 2rem; }
+		.card-title { font-size: 1.15rem; }
+		.stat-title { font-size: 0.85rem; }
+		.stat-desc { font-size: 0.8rem; }
 
-		.stat-value {
-			font-size: 2rem;
-		}
+		.label { font-size: 0.9rem; }
+		.menu-title { font-size: 0.8rem; }
 
-		.card-title {
-			font-size: 1.15rem;
-		}
+		.tab { font-size: 0.9rem; }
 
+		th, label, .label, .stat-title, .menu-title { font-weight: 600; }
+
+		.table thead tr th {
+			background-color: #1e40af !important;
+			color: #ffffff !important;
+			font-size: 0.95rem !important;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+		}
 	</style>
 	%sveltekit.head%
 </head>

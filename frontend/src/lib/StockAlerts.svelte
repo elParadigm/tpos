@@ -52,14 +52,14 @@
 <!-- Bell button (stays in sidebar) -->
 <button
 	bind:this={btnEl}
-	class="btn btn-ghost btn-sm btn-square relative"
+	class="btn btn-ghost w-14 h-14 relative"
 	onclick={toggle}
 	title="Alertes de stock"
 >
-	<Bell size="20" class={count > 0 ? 'text-warning' : 'text-base-content/60'} />
+	<Bell size="40" class={count > 0 ? 'text-warning' : 'text-base-content/60'} />
 	{#if count > 0}
-		<span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full
-		             bg-error text-white text-[10px] font-bold flex items-center justify-center
+		<span class="absolute -top-1 -right-1 min-w-[24px] h-[24px] px-1.5 rounded-full
+		             bg-error text-white text-xs font-bold flex items-center justify-center
 		             animate-pulse">
 			{count > 99 ? '99+' : count}
 		</span>

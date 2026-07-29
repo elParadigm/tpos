@@ -3,6 +3,7 @@
 	import { goto } from "$app/navigation";
 	import { currentWorker, logout } from "$lib/auth";
 	import StockAlerts from "$lib/StockAlerts.svelte";
+	import KioskBar from "$lib/KioskBar.svelte";
 	import {
 		ScanBarcode,
 		Users,
@@ -21,26 +22,14 @@
 	const allLinks = [
 		{ href: "/pos", label: "Caisse", icon: ScanBarcode },
 		{ href: "/stock", label: "Stock", icon: Warehouse },
-		{ href: "/history", label: "Historique", icon: History },
 		{ href: "/customers", label: "Clients", icon: Users },
-		{ href: "/analytics", label: "Rapports", icon: ChartPie },
-		{ href: "/settings", label: "Configuration", icon: Settings },
 		{ href: "/settings/products", label: "Produits", icon: Box },
-		{
-			href: "/settings/categories",
-			label: "Catégories",
-			icon: ChartBarStacked,
-		},
-		{
-			href: "/settings/suppliers",
-			label: "Fournisseurs",
-			icon: Van,
-		},
-		{
-			href: "/settings/workers",
-			label: "Personnel",
-			icon: Pickaxe,
-		},
+		{ href: "/settings/categories", label: "Catégories", icon: ChartBarStacked },
+		{ href: "/settings/suppliers", label: "Fournisseurs", icon: Van },
+		{ href: "/analytics", label: "Rapports", icon: ChartPie },
+		{ href: "/history", label: "Historique", icon: History },
+		{ href: "/settings", label: "Configuration", icon: Settings },
+		{ href: "/settings/workers", label: "Personnel", icon: Pickaxe },
 	];
 
 	$effect(() => {
@@ -54,11 +43,11 @@
 		goto("/login");
 	}
 
-	let mainLinks = $derived(allLinks.slice(0, 5));
+	let mainLinks = $derived(allLinks.slice(0, 6));
 	let settingsLinks = $derived(
 		$currentWorker?.role === "admin" ||
 			$currentWorker?.role === "manager"
-			? allLinks.slice(5)
+			? allLinks.slice(6)
 			: [],
 	);
 </script>
@@ -83,6 +72,7 @@
 				<StockAlerts />
 			</div>
 			<!-- Page content -->
+			<KioskBar />
 			<main class="flex-1 bg-base-200 min-h-screen">
 				<slot />
 			</main>

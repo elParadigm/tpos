@@ -76,6 +76,23 @@ def create_sale():
     data = request.get_json()
     conn = get_db()
     try:
+        # Check stock levels before processing
+        out_of_stock = []
+        for item in data.get('items', []):
+            if not item.get('barcode'):
+                continue  # custom items have no barcode, skip stock check
+            row = conn.execute(
+                "SELECT name, quantity FROM products WHERE barcode = ?",
+                [item['barcode']]
+            ).fetchone()
+            if not row:
+                out_of_stock.append(f"{item.get('custom_name') or item.get('barcode')}: produit introuvable")
+            elif row['quantity'] < item['quantity']:
+                out_of_stock.append(f"{row['name']}: stock {row['quantity']}, demandé {item['quantity']}")
+
+        if out_of_stock:
+            return jsonify({'error': 'Stock insuffisant', 'details': out_of_stock}), 409
+
         cursor = conn.execute("""
             INSERT INTO sales (total, discount, payment_method, customer_id, notes, created_by)
             VALUES (?, ?, ?, ?, ?, ?)
