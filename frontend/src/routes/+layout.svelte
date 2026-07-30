@@ -4,6 +4,8 @@
 	import { currentWorker, logout } from "$lib/auth";
 	import StockAlerts from "$lib/StockAlerts.svelte";
 	import KioskBar from "$lib/KioskBar.svelte";
+	import { onMount } from "svelte";
+	import { BASE } from "$lib/config";
 	import {
 		ScanBarcode,
 		Users,
@@ -31,6 +33,20 @@
 		{ href: "/settings", label: "Configuration", icon: Settings },
 		{ href: "/settings/workers", label: "Personnel", icon: Pickaxe },
 	];
+
+	let storeName = $state("TPOS Commerce");
+
+	onMount(async () => {
+		try {
+			const res = await fetch(`${BASE}/settings`);
+			if (res.ok) {
+				const data = await res.json();
+				if (data.store_name) storeName = data.store_name;
+			}
+		} catch (e) {
+			// keep default
+		}
+	});
 
 	$effect(() => {
 		if ($page.url.pathname !== "/login" && !$currentWorker) {
@@ -67,7 +83,7 @@
 					<Menu size="20" />
 				</label>
 				<span class="font-bold text-lg flex-1"
-					>TPOS - Gestion Commerce</span
+					>{storeName}</span
 				>
 				<StockAlerts />
 			</div>
@@ -85,7 +101,7 @@
 				<li
 					class="menu-title text-xl font-black text-primary mb-2 tracking-wide border-b pb-2 border-base-200"
 				>
-					TPOS Commerce
+					{storeName}
 				</li>
 
 				<!-- Worker info + alerts -->

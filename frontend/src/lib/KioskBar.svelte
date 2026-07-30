@@ -1,6 +1,7 @@
 <script>
 	import { onMount, onDestroy } from "svelte";
 	import { Clock, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, RotateCw } from "@lucide/svelte";
+	import { logout } from "$lib/auth";
 
 	let datetime = $state("");
 	let batteryLevel = $state(100);
@@ -78,6 +79,7 @@
 
 	async function doPower(action) {
 		powering = true;
+		logout();
 		try {
 			const res = await fetch(`${import.meta.env.DEV ? "http://127.0.0.1:5000/api" : "/api"}/system/${action}`, {
 				method: "POST",

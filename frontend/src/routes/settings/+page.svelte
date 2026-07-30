@@ -9,6 +9,9 @@
 		CheckCircle2,
 		AlertTriangle,
 		RefreshCw,
+		User,
+		Phone,
+		Mail,
 	} from "@lucide/svelte";
 
 	import { BASE } from '$lib/config';
@@ -535,6 +538,38 @@
 							></textarea>
 						</div>
 					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Contact Support Technique - compact footer card -->
+		<div
+			class="card bg-base-100 shadow border border-base-200"
+		>
+			<div class="card-body py-3 px-5">
+				<div
+					class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm"
+				>
+					<span
+						class="flex items-center gap-2 font-semibold text-base-content/70"
+					>
+						<User size="15" class="text-primary" />
+						Abderraouf Talbi
+					</span>
+					<a
+						href="tel:+21628424428"
+						class="flex items-center gap-2 text-base-content/70 hover:text-primary transition-colors"
+					>
+						<Phone size="15" class="text-primary" />
+						+216 28 424 428
+					</a>
+					<a
+						href="mailto:abderraouf.talbi@proton.me"
+						class="flex items-center gap-2 text-base-content/70 hover:text-primary transition-colors"
+					>
+						<Mail size="15" class="text-primary" />
+						abderraouf.talbi@proton.me
+					</a>
 				</div>
 			</div>
 		</div>
