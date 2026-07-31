@@ -36,6 +36,9 @@
 	let usbDrives = $state([]);
 	let toastMessage = $state("");
 	let toastType = $state("success");
+	let verifyingPath = $state("");
+	let verifyResults = $state({});   // path -> { success, message, integrity, tables }
+	let lastBackupDays = $state(null);
 
 	onMount(async () => {
 		try {
@@ -61,6 +64,11 @@
 			if (res.ok) {
 				const data = await res.json();
 				usbDrives = data.drives || [];
+			}
+			const res2 = await fetch(`${BASE}/backup/status`);
+			if (res2.ok) {
+				const st = await res2.json();
+				lastBackupDays = st.newest_backup_days;
 			}
 		} catch (e) {
 			console.error(e);
@@ -130,6 +138,26 @@
 			}
 		} catch { showToast("Erreur de connexion", "error"); }
 		finally { restoring = false; }
+	}
+
+	async function verifyBackup(path) {
+		verifyingPath = path;
+		verifyResults[path] = { pending: true };
+		try {
+			const res = await fetch(`${BASE}/backup/verify`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ backup_path: path }),
+			});
+			const data = await res.json();
+			verifyResults[path] = data.error
+				? { success: false, message: data.error }
+				: data;
+		} catch {
+			verifyResults[path] = { success: false, message: "Erreur de connexion" };
+		} finally {
+			verifyingPath = "";
+		}
 	}
 
 	async function saveSettings() {
@@ -344,6 +372,13 @@
 							données.
 						</p>
 
+						{#if lastBackupDays !== null}
+							<div class="mb-3 {lastBackupDays > 7 ? 'badge badge-error gap-1.5 p-3 font-semibold' : 'badge badge-success gap-1.5 p-3 font-semibold'}">
+								<HardDrive size="14" />
+								Dernière sauvegarde il y a {Math.floor(lastBackupDays)} jour{lastBackupDays >= 2 ? "s" : ""}
+							</div>
+						{/if}
+
 						{#if usbDrives.length > 0}
 							<div
 								class="badge badge-success gap-1.5 mb-3 font-semibold p-3"
@@ -401,15 +436,35 @@
 								{:else}
 									<div class="divide-y divide-base-200 max-h-60 overflow-y-auto">
 										{#each backups as b}
-											<div class="flex items-center justify-between px-3 py-2.5 hover:bg-base-200">
+											{@const vr = verifyResults[b.path]}
+											<div class="flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-base-200">
 												<div class="min-w-0 flex-1">
 													<p class="text-sm font-medium truncate">{b.filename}</p>
 													<p class="text-xs text-base-content/50">{b.date} · {(b.size / 1024).toFixed(0)} Ko</p>
+													{#if vr}
+														<p class="text-xs font-bold mt-0.5 {vr.success ? 'text-success' : 'text-error'}">
+															{#if vr.pending}
+																<span class="loading loading-spinner loading-xs"></span> Vérification...
+															{:else}
+																{vr.success ? '✓ ' : '✗ '}{vr.message}
+																{#if vr.success}
+																	· {vr.tables?.products ?? 0} produits · {vr.tables?.customers ?? 0} clients
+																{/if}
+															{/if}
+														</p>
+													{/if}
 												</div>
-												<button class="btn btn-sm btn-warning gap-1.5 font-bold"
-													onclick={() => triggerRestore(b.path)}>
-													<RefreshCw size="14" /> Restaurer
-												</button>
+												<div class="flex gap-2 shrink-0">
+													<button class="btn btn-sm btn-outline gap-1.5 font-semibold"
+														onclick={() => verifyBackup(b.path)}
+														disabled={!!verifyingPath}>
+														<RefreshCw size="14" /> Vérifier
+													</button>
+													<button class="btn btn-sm btn-warning gap-1.5 font-bold"
+														onclick={() => triggerRestore(b.path)}>
+														<RefreshCw size="14" /> Restaurer
+													</button>
+												</div>
 											</div>
 										{/each}
 									</div>

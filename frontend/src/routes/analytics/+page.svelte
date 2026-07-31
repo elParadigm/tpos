@@ -145,6 +145,18 @@
 		load();
 	}
 
+	function setTab(t) {
+		tab = t;
+		// The overview canvases are destroyed when the tab is hidden, so
+		// rebuild the charts when coming back to it.
+		if (t === "overview") {
+			requestAnimationFrame(() => {
+				buildRevenueChart();
+				buildTopProductsChart();
+			});
+		}
+	}
+
 	function todayStr() {
 		return new Date().toLocaleDateString("fr-FR", {
 			weekday: "long", day: "numeric", month: "long", year: "numeric"
@@ -206,30 +218,30 @@
 		<div class="alert alert-error shadow-lg">{pageError}</div>
 	{/if}
 
-	<!-- Today Snapshot -->
+	<!-- Monthly Snapshot -->
 	{#if dashboard}
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
 			<div class="stat bg-base-100 shadow-md border border-base-200 rounded-box">
 				<div class="stat-figure text-primary"><TrendingUp size="24" /></div>
-				<div class="stat-title font-bold uppercase">Ventes du Jour</div>
+				<div class="stat-title font-bold uppercase">Ventes du Mois</div>
 				<div class="stat-value text-primary">{dashboard.sales_count}</div>
 				<div class="stat-desc">Transactions</div>
 			</div>
 			<div class="stat bg-base-100 shadow-md border border-base-200 rounded-box">
 				<div class="stat-figure text-success"><Banknote size="24" /></div>
-				<div class="stat-title font-bold uppercase">Recette Totale</div>
+				<div class="stat-title font-bold uppercase">Recette du Mois</div>
 				<div class="stat-value text-success font-mono">{dashboard.revenue?.toFixed(3)} DT</div>
 				<div class="stat-desc">Chiffre d'affaires</div>
 			</div>
 			<div class="stat bg-base-100 shadow-md border border-base-200 rounded-box">
 				<div class="stat-figure text-info"><Banknote size="24" /></div>
-				<div class="stat-title font-bold uppercase">Espèces</div>
+				<div class="stat-title font-bold uppercase">Espèces (Mois)</div>
 				<div class="stat-value text-info font-mono">{dashboard.cash_revenue?.toFixed(3)} DT</div>
 				<div class="stat-desc">En caisse</div>
 			</div>
 			<div class="stat bg-base-100 shadow-md border border-base-200 rounded-box">
 				<div class="stat-figure text-warning"><CreditCard size="24" /></div>
-				<div class="stat-title font-bold uppercase">Crédits</div>
+				<div class="stat-title font-bold uppercase">Crédits (Mois)</div>
 				<div class="stat-value text-warning font-mono">{dashboard.credit_revenue?.toFixed(3)} DT</div>
 				<div class="stat-desc">À encaisser</div>
 			</div>
@@ -239,19 +251,19 @@
 	<!-- Tabs -->
 	<div role="tablist" class="tabs tabs-bordered bg-base-100 p-2 rounded-lg shadow-sm border border-base-200">
 		<button role="tab" class="tab font-semibold gap-2 {tab === 'overview' ? 'tab-active text-primary border-primary font-bold' : ''}"
-			onclick={() => tab = 'overview'}>
+			onclick={() => setTab('overview')}>
 			<BarChart3 size="16" /> Évolution CA
 		</button>
 		<button role="tab" class="tab font-semibold gap-2 {tab === 'products' ? 'tab-active text-primary border-primary font-bold' : ''}"
-			onclick={() => tab = 'products'}>
+			onclick={() => setTab('products')}>
 			<Package size="16" /> Top Ventes & Marges
 		</button>
 		<button role="tab" class="tab font-semibold gap-2 {tab === 'debts' ? 'tab-active text-primary border-primary font-bold' : ''}"
-			onclick={() => tab = 'debts'}>
+			onclick={() => setTab('debts')}>
 			<Users size="16" /> Crédits & Caisses
 		</button>
 		<button role="tab" class="tab font-semibold gap-2 {tab === 'cloture' ? 'tab-active text-primary border-primary font-bold' : ''}"
-			onclick={() => tab = 'cloture'}>
+			onclick={() => setTab('cloture')}>
 			<FileText size="16" /> Clôture
 		</button>
 	</div>

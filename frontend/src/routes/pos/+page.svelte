@@ -12,10 +12,7 @@
 		Printer,
 		Package,
 		Tag,
-		Banknote,
-		CreditCard,
-		FileText,
-		DollarSign,
+		User,
 	} from "@lucide/svelte";
 
 	import { BASE } from '$lib/config';
@@ -27,6 +24,19 @@
 	let products = $state([]);
 	let discount = $state(0);
 	let paymentMethod = $state("cash");
+
+	// --- Checkout: client selection + amount paid ---
+	let customers = $state([]);
+	let customerSearch = $state("");
+	let customerSearchEl = $state(null);
+	let customerDropdownOpen = $state(false);
+	let selectedCustomer = $state(null);
+	let customerDebt = $state(null);
+
+	let showCheckoutModal = $state(false);
+	let checkoutPaidAmount = $state("");
+	let checkoutError = $state("");
+	let checkoutSubmitting = $state(false);
 
 	let customName = $state("");
 	let customPrice = $state("");
@@ -53,8 +63,15 @@
 		loadCategories();
 		loadProducts();
 		loadSettings();
+		loadCustomers();
 
 		window.addEventListener("keydown", handleGlobalKeydown);
+		const handleDocClick = (e) => {
+			if (!e.target.closest("#customer-search-wrap")) {
+				customerDropdownOpen = false;
+			}
+		};
+		document.addEventListener("click", handleDocClick);
 		focusSearch();
 
 		return () => {
@@ -62,8 +79,18 @@
 				"keydown",
 				handleGlobalKeydown,
 			);
+			document.removeEventListener("click", handleDocClick);
 		};
 	});
+
+	async function loadCustomers() {
+		try {
+			const res = await fetch(`${BASE}/customers`);
+			if (res.ok) customers = await res.json();
+		} catch (e) {
+			console.error(e);
+		}
+	}
 
 	function focusSearch() {
 		tick().then(() => {
@@ -105,6 +132,20 @@
 	}
 
 	function handleGlobalKeydown(e) {
+		const target = e.target;
+
+		// Ignore keystrokes inside form fields: typing a price/discount/
+		// quantity and pressing Enter must never be mistaken for a barcode.
+		if (
+			target &&
+			(target.tagName === "INPUT" ||
+				target.tagName === "TEXTAREA" ||
+				target.tagName === "SELECT" ||
+				target.isContentEditable)
+		) {
+			return;
+		}
+
 		const now = Date.now();
 		if (now - lastKeyTime > 300) barcodeBuffer = "";
 		lastKeyTime = now;
@@ -241,6 +282,71 @@
 		discount = 0;
 	}
 
+	// --- Customer selection helpers ---
+	let filteredCustomers = $derived(
+		customers
+			.filter((c) => {
+				if (!customerSearch.trim()) return true;
+				const q = customerSearch.toLowerCase();
+				return (
+					c.name.toLowerCase().includes(q) ||
+					(c.phone && c.phone.toLowerCase().includes(q))
+				);
+			})
+			.slice(0, 20),
+	);
+
+	async function refreshCustomerDebt(id) {
+		try {
+			const res = await fetch(`${BASE}/customers/${id}`);
+			if (res.ok) {
+				const data = await res.json();
+				customerDebt = data.remaining_debt || 0;
+			}
+		} catch (e) {
+			customerDebt = null;
+		}
+	}
+
+	async function selectCustomer(c) {
+		selectedCustomer = c;
+		customerSearch = "";
+		customerDropdownOpen = false;
+		await refreshCustomerDebt(c.id);
+	}
+
+	// Picking a customer also acts as a "use this one" action.
+	// Starting a new search does not clear the selection silently — the
+	// selected customer stays until removed explicitly or a new one is
+	// picked, so a confirm can't attach debt to the wrong person.
+	function onCustomerSearchInput() {
+		customerDropdownOpen = true;
+		if (selectedCustomer && customerSearch.trim()) {
+			clearCustomer();
+			customerDebt = null;
+		}
+	}
+
+	function clearCustomer() {
+		selectedCustomer = null;
+		customerDebt = null;
+		customerSearch = "";
+		customerDropdownOpen = false;
+	}
+
+	// amount paid: null/empty = full payment; 0 = nothing; other = partial.
+	// checkoutPaidAmount is a number input -> Svelte binds it as number|null.
+	let amountPaid = $derived(
+		checkoutPaidAmount === "" || checkoutPaidAmount === null
+			? null
+			: Number(checkoutPaidAmount),
+	);
+	// A partial or zero payment leaves a remainder -> the client is required
+	let needsCustomer = $derived(
+		amountPaid !== null &&
+			(isNaN(amountPaid) || amountPaid < total),
+	);
+
 	function lineTotal(item) {
 		return (item.unit_price - item.discount) * item.quantity;
 	}
@@ -251,10 +357,30 @@
 	async function completeSale() {
 		if (cart.length === 0) return;
 
+		// Reset the client + amount for a fresh checkout decision
+		clearCustomer();
+		checkoutPaidAmount = "";
+		checkoutError = "";
+		showCheckoutModal = true;
+	}
+
+	async function submitSale() {
+		if (checkoutSubmitting) return;
+		if (!selectedCustomer && needsCustomer) {
+			checkoutError =
+				"Veuillez sélectionner un client : cette vente laisse un reste à payer.";
+			return;
+		}
+		checkoutError = "";
+		checkoutSubmitting = true;
+
 		const salePayload = {
 			total: total,
-			discount: discount,
+			discount: Number(discount) || 0,
 			payment_method: paymentMethod,
+			customer_id: selectedCustomer?.id ?? null,
+			// null (not "") = full payment; keep the sentinel consistent
+			amount_paid: amountPaid === null ? null : Number(amountPaid),
 			created_by: $currentWorker?.id ?? null,
 			items: cart.map((i) => ({
 				barcode: i.barcode,
@@ -278,10 +404,21 @@
 				if (res.status === 409) {
 					alert("Stock insuffisant:\n" + (responseData.details || []).join("\n"));
 				} else {
-					alert(responseData.error || "Erreur lors de la vente");
+					checkoutError =
+						responseData.error || "Erreur lors de la vente";
 				}
 				return;
 			}
+
+			showCheckoutModal = false;
+
+			// Effective paid amount: empty => full total; else min(input, total),
+			// excess is ignored. Anything not covered becomes debt.
+			const paid =
+				amountPaid === null || isNaN(amountPaid)
+					? total
+					: Math.min(amountPaid, total);
+			const remaining = Math.max(0, total - paid);
 
 			lastCompletedSale = {
 				id: responseData.sale_id || responseData.id || Date.now(),
@@ -292,12 +429,22 @@
 				total: total,
 				paymentMethod: paymentMethod,
 				workerName: $currentWorker?.name || "Caisse",
+				customerName: selectedCustomer?.name || null,
+				amountPaid: paid,
+				remaining: remaining,
 			};
 			showReceiptModal = true;
 			// Refresh product stock display
 			loadProducts(selectedCategory);
+			// Refresh the selected customer's balance
+			if (selectedCustomer) {
+				await refreshCustomerDebt(selectedCustomer.id);
+			}
 		} catch (e) {
 			console.error("Sale failed", e);
+			checkoutError = "Erreur de connexion au serveur";
+		} finally {
+			checkoutSubmitting = false;
 		}
 	}
 
@@ -307,6 +454,9 @@
 		discount = 0;
 		paymentMethod = "cash";
 		lastCompletedSale = null;
+		clearCustomer();
+		checkoutPaidAmount = "";
+		checkoutError = "";
 		focusSearch();
 	}
 
@@ -537,7 +687,7 @@
 							>Chèque</option
 						>
 						<option value="credit"
-							>Crédit / Carte</option
+							>Crédit</option
 						>
 					</select>
 				</div>
@@ -564,17 +714,17 @@
 				<input
 					bind:this={searchInputEl}
 					type="text"
-					class="input input-bordered input-lg w-full pl-11 shadow-sm font-medium"
+					class="input input-bordered input-lg w-full pl-12 shadow-sm font-medium"
 					placeholder="Scannez un code-barres ou tapez le nom d'un produit..."
 					bind:value={searchQuery}
 				/>
 				<Search
-					class="absolute left-4 top-4 text-base-content/40"
+					class="absolute left-4 top-1/2 -translate-y-1/2 text-base-content/40"
 					size="20"
 				/>
 				{#if searchQuery}
 					<button
-						class="btn btn-circle btn-ghost btn-xs absolute right-3 top-4"
+						class="btn btn-circle btn-ghost btn-xs absolute right-3 top-1/2 -translate-y-1/2"
 						onclick={() => {
 							searchQuery = "";
 							focusSearch();
@@ -712,6 +862,184 @@
 	</div>
 </div>
 
+<!-- CHECKOUT MODAL: client + amount paid -->
+{#if showCheckoutModal}
+	<div class="modal modal-open no-print">
+		<div class="modal-box max-w-md relative">
+			<button
+				class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+				onclick={() => (showCheckoutModal = false)}
+			>
+				<X size="16" />
+			</button>
+
+			<h3 class="font-bold text-lg mb-1 flex items-center gap-2">
+				<CheckCircle2 class="text-success" size="20" />
+				Valider la Vente
+			</h3>
+			<p
+				class="text-sm font-semibold text-base-content/70 mb-4"
+			>
+				Total: <span class="text-success font-extrabold font-mono">{total.toFixed(3)} {storeSettings.currency}</span>
+			</p>
+
+			{#if checkoutError}
+				<div class="alert alert-error mb-4 py-2 text-sm">
+					{checkoutError}
+				</div>
+			{/if}
+
+			<!-- Client picker -->
+			<div class="form-control mb-3">
+				<label
+					class="label font-semibold"
+					for="checkout-customer-search"
+					>Client (nécessaire s'il reste à payer)</label
+				>
+				<div class="relative" id="customer-search-wrap">
+					<div class="relative">
+						<input
+							bind:this={customerSearchEl}
+							id="checkout-customer-search"
+							type="text"
+							class="input input-bordered w-full pl-8 pr-8 font-medium"
+							placeholder="Rechercher un client par nom ou téléphone..."
+							bind:value={customerSearch}
+							oninput={onCustomerSearchInput}
+							onfocus={() =>
+								(customerDropdownOpen = true)}
+						/>
+						<User
+							class="absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40"
+							size="14"
+						/>
+						{#if customerSearch}
+							<button
+								class="btn btn-xs btn-circle btn-ghost absolute right-1 top-1.5"
+								onclick={() => {
+									customerSearch = "";
+									customerDropdownOpen = false;
+									clearCustomer();
+								}}
+							>
+								<X size="12" />
+							</button>
+						{/if}
+					</div>
+
+					{#if customerDropdownOpen && filteredCustomers.length > 0}
+						<div
+							class="absolute z-50 w-full mt-1 max-h-52 overflow-y-auto bg-base-100 border border-base-300 rounded-lg shadow-xl"
+						>
+							{#each filteredCustomers as c}
+								<button
+									type="button"
+									class="w-full text-left px-3 py-2 hover:bg-base-200 border-b border-base-200 last:border-0"
+									onclick={() => selectCustomer(c)}
+								>
+									<div
+										class="font-semibold text-sm"
+									>
+										{c.name}
+									</div>
+									<div
+										class="text-xs text-base-content/60"
+									>
+										{c.phone ?? "—"}
+									</div>
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+				{#if selectedCustomer}
+					<div
+						class="flex items-center gap-2 mt-2"
+					>
+						<span
+							class="badge badge-ghost font-bold"
+						>
+							{selectedCustomer.name}
+						</span>
+						{#if customerDebt > 0}
+							<span
+								class="badge badge-error text-white font-bold"
+							>
+								Dette actuelle: {customerDebt.toFixed(3)}
+								{storeSettings.currency}
+							</span>
+						{/if}
+						<button
+							class="btn btn-xs btn-ghost text-error"
+							onclick={clearCustomer}
+							title="Retirer le client"
+						>
+							<X size="13" />
+						</button>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Amount paid -->
+			<div class="form-control">
+				<label
+					class="label font-semibold"
+					for="checkout-paid-amount"
+					>Montant Payé ({storeSettings.currency})</label
+				>
+				<input
+					id="checkout-paid-amount"
+					class="input input-bordered w-full font-mono"
+					type="number"
+					step="0.1"
+					min="0"
+					bind:value={checkoutPaidAmount}
+					placeholder="Laisser vide = paiement complet"
+				/>
+				<p class="text-[11px] text-base-content/50 mt-1 font-medium">
+					Vide = paiement complet · 0 = tout à crédit · autre
+					montant = acompte, le reste devient une dette
+				</p>
+				{#if needsCustomer && !selectedCustomer}
+					<p
+						class="text-[11px] font-semibold text-warning mt-1"
+					>
+						⚠ Un client est nécessaire : ce paiement laisse
+						un reste à payer
+					</p>
+				{/if}
+			</div>
+
+			<div class="modal-action">
+				<button
+					class="btn btn-ghost"
+					onclick={() => (showCheckoutModal = false)}
+					>Annuler</button
+				>
+				<button
+					class="btn btn-success text-white font-bold gap-2"
+					onclick={submitSale}
+					disabled={checkoutSubmitting}
+				>
+					{#if checkoutSubmitting}
+						<span
+							class="loading loading-spinner loading-sm"
+						></span>
+						Enregistrement...
+					{:else}
+						<CheckCircle2 size="18" /> Confirmer la vente
+					{/if}
+				</button>
+			</div>
+		</div>
+		<div
+			class="modal-backdrop"
+			onclick={() => (showCheckoutModal = false)}
+		></div>
+	</div>
+{/if}
+
 <!-- POST-SALE RECEIPT MODAL -->
 {#if showReceiptModal && lastCompletedSale}
 	<div class="modal modal-open no-print">
@@ -784,6 +1112,12 @@
 				<strong>Caissier:</strong>
 				{lastCompletedSale.workerName}
 			</p>
+			{#if lastCompletedSale.customerName}
+				<p>
+					<strong>Client:</strong>
+					{lastCompletedSale.customerName}
+				</p>
+			{/if}
 			<p>
 				<strong>Paiement:</strong>
 				{lastCompletedSale.paymentMethod.toUpperCase()}
@@ -852,6 +1186,22 @@
 					{storeSettings.currency}</span
 				>
 			</div>
+			<div class="total-row">
+				<span>Payé:</span>
+				<span
+					>{lastCompletedSale.amountPaid.toFixed(3)}
+					{storeSettings.currency}</span
+				>
+			</div>
+			{#if lastCompletedSale.remaining > 0}
+				<div class="total-row remaining-row">
+					<span>Reste à payer:</span>
+					<span
+						>{lastCompletedSale.remaining.toFixed(3)}
+						{storeSettings.currency}</span
+					>
+				</div>
+			{/if}
 		</div>
 
 		{#if storeSettings.receipt_footer}
@@ -964,6 +1314,14 @@
 			font-weight: bold;
 			border-top: 1px solid #000;
 			padding-top: 4px;
+		}
+
+		.remaining-row {
+			font-weight: bold;
+			font-size: 14px;
+			border-top: 1px solid #000;
+			padding-top: 3px;
+			margin-top: 3px;
 		}
 
 		.receipt-footer {

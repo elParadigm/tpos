@@ -74,7 +74,7 @@
 			error = "Le code PIN est obligatoire";
 			return;
 		}
-		if (!editingId && pin !== confirmPin) {
+		if (pin && pin !== confirmPin) {
 			error = "Les codes PIN ne correspondent pas";
 			return;
 		}

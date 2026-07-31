@@ -12,7 +12,9 @@ DEFAULT_SETTINGS = {
     'receipt_header': 'Bienvenue chez nous !',
     'receipt_footer': 'Merci pour votre visite. Les articles ne sont ni repris ni échangés.',
     'printer_format': '80mm',
-    'currency': 'DT'
+    'currency': 'DT',
+    'printer_port': '/dev/usb/lp0',
+    'printer_enabled': '0'
 }
 
 @settings_bp.route('/settings', methods=['GET'])

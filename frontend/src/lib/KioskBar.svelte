@@ -1,7 +1,7 @@
 <script>
 	import { onMount, onDestroy } from "svelte";
 	import { Clock, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, RotateCw } from "@lucide/svelte";
-	import { logout } from "$lib/auth";
+	import { logout, authFetch } from "$lib/auth";
 
 	let datetime = $state("");
 	let batteryLevel = $state(100);
@@ -81,7 +81,7 @@
 		powering = true;
 		logout();
 		try {
-			const res = await fetch(`${import.meta.env.DEV ? "http://127.0.0.1:5000/api" : "/api"}/system/${action}`, {
+			const res = await authFetch(`${import.meta.env.DEV ? "http://127.0.0.1:5000/api" : "/api"}/system/${action}`, {
 				method: "POST",
 			});
 			if (!res.ok) {
@@ -97,7 +97,7 @@
 	}
 </script>
 
-<div class="flex items-center justify-between px-4 py-1 bg-base-100 border-b border-base-300 text-sm font-medium select-none">
+<div class="no-print kiosk-bar flex items-center justify-between px-4 py-1 bg-base-100 border-b border-base-300 text-sm font-medium select-none">
 	<div class="flex items-center gap-2">
 		<Clock size="15" class="text-base-content/50" />
 		<span class="text-base-content/80">{datetime}</span>

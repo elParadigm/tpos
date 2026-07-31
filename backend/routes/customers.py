@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from database import get_db
+from audit import log_action
 
 customers_bp = Blueprint('customers', __name__)
 
@@ -19,15 +20,19 @@ def list_customers():
 def list_customers_with_debt():
     conn = get_db()
     try:
+        # Subqueries instead of JOINs: a JOIN between sales and payments
+        # cross-multiplies when a customer has several of both, inflating
+        # the sums. Subqueries keep each total independent.
         rows = conn.execute("""
-            SELECT c.id, c.name, c.phone,
-                   COALESCE(SUM(s.total - s.discount), 0)
-                       - COALESCE(SUM(cp.amount), 0) AS remaining_debt
-            FROM customers c
-            LEFT JOIN sales s ON s.customer_id = c.id AND s.payment_method = 'credit'
-            LEFT JOIN customer_payments cp ON cp.customer_id = c.id
-            GROUP BY c.id
-            HAVING remaining_debt > 0
+            SELECT * FROM (
+                SELECT c.id, c.name, c.phone,
+                       COALESCE((SELECT SUM(s.total - s.discount) FROM sales s
+                                 WHERE s.customer_id = c.id AND s.payment_method = 'credit'), 0)
+                           - COALESCE((SELECT SUM(COALESCE(cp.amount, 0)) FROM customer_payments cp
+                                       WHERE cp.customer_id = c.id), 0) AS remaining_debt
+                FROM customers c
+            )
+            WHERE remaining_debt > 0
             ORDER BY remaining_debt DESC
         """).fetchall()
         return jsonify([dict(row) for row in rows])
@@ -41,15 +46,16 @@ def get_customer(id):
     try:
         row = conn.execute("""
             SELECT c.id, c.name, c.phone,
-                   COALESCE(SUM(s.total - s.discount), 0) AS total_credit_sales,
-                   COALESCE(SUM(cp.amount), 0) AS total_repaid,
-                   COALESCE(SUM(s.total - s.discount), 0)
-                       - COALESCE(SUM(cp.amount), 0) AS remaining_debt
+                   COALESCE((SELECT SUM(s.total - s.discount) FROM sales s
+                             WHERE s.customer_id = c.id AND s.payment_method = 'credit'), 0) AS total_credit_sales,
+                   COALESCE((SELECT SUM(COALESCE(cp.amount, 0)) FROM customer_payments cp
+                             WHERE cp.customer_id = c.id), 0) AS total_repaid,
+                   COALESCE((SELECT SUM(s.total - s.discount) FROM sales s
+                             WHERE s.customer_id = c.id AND s.payment_method = 'credit'), 0)
+                       - COALESCE((SELECT SUM(COALESCE(cp.amount, 0)) FROM customer_payments cp
+                                   WHERE cp.customer_id = c.id), 0) AS remaining_debt
             FROM customers c
-            LEFT JOIN sales s ON s.customer_id = c.id AND s.payment_method = 'credit'
-            LEFT JOIN customer_payments cp ON cp.customer_id = c.id
             WHERE c.id = ?
-            GROUP BY c.id
         """, [id]).fetchone()
         if row is None:
             return jsonify({'error': 'not found'}), 404
@@ -123,9 +129,11 @@ def add_customer_payment(id):
     data = request.get_json()
     conn = get_db()
     try:
-        conn.execute("INSERT INTO customer_payments (customer_id, amount, notes) VALUES (?, ?, ?)",
-                     [id, data['amount'], data.get('notes')])
+        conn.execute("INSERT INTO customer_payments (customer_id, amount, notes, created_by) VALUES (?, ?, ?, ?)",
+                     [id, data['amount'], data.get('notes'), data.get('created_by')])
         conn.commit()
+        log_action('SALE', f"Règlement client enregistré: {data['amount']}",
+                   worker_id=data.get('created_by'))
         return jsonify({'message': 'payment recorded'}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400

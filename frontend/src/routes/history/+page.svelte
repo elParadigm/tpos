@@ -184,7 +184,7 @@
 					bind:value={searchQuery}
 				/>
 				<Search
-					class="absolute left-2.5 top-2 text-base-content/40"
+					class="absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40"
 					size="14"
 				/>
 			</div>

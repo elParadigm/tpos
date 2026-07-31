@@ -121,8 +121,10 @@ CREATE TABLE IF NOT EXISTS customer_payments (
     paid_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
     notes       TEXT,
     created_by  INTEGER,
+    sale_id     INTEGER,
     FOREIGN KEY (customer_id) REFERENCES customers(id),
-    FOREIGN KEY (created_by)  REFERENCES workers(id)
+    FOREIGN KEY (created_by)  REFERENCES workers(id),
+    FOREIGN KEY (sale_id)     REFERENCES sales(id) ON DELETE CASCADE
 );
 
 -- ------------------------------------------------------------
@@ -165,6 +167,17 @@ CREATE TABLE IF NOT EXISTS sale_items (
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
+);
+
+-- ------------------------------------------------------------
+-- 13. AUDIT LOGS
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    worker_name TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ------------------------------------------------------------

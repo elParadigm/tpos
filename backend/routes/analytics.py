@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from database import get_db
+from database import get_db, utc_offset_sql, local_now
 
 analytics_bp = Blueprint('analytics', __name__)
 
@@ -8,13 +8,17 @@ analytics_bp = Blueprint('analytics', __name__)
 def dashboard():
     conn = get_db()
     try:
-        row = conn.execute("""
+        # Monthly snapshot: aggregates the current calendar month.
+        # (The daily closing figures live in /reports/daily.)
+        # Sale timestamps are stored in UTC; shift to local before bucketing.
+        row = conn.execute(f"""
             SELECT
                 COUNT(*) AS sales_count,
                 COALESCE(SUM(total - discount), 0) AS revenue,
                 COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total - discount ELSE 0 END), 0) AS cash_revenue,
                 COALESCE(SUM(CASE WHEN payment_method = 'credit' THEN total - discount ELSE 0 END), 0) AS credit_revenue
-            FROM sales WHERE DATE(sale_date) = DATE('now')
+            FROM sales
+            WHERE strftime('%Y-%m', sale_date, {utc_offset_sql()}) = strftime('%Y-%m', 'now', {utc_offset_sql()})
         """).fetchone()
         return jsonify(dict(row))
     finally:
@@ -26,11 +30,11 @@ def daily_revenue():
     since = request.args.get('since')
     conn = get_db()
     try:
-        rows = conn.execute("""
-            SELECT DATE(sale_date) AS day, COUNT(*) AS sales_count,
+        rows = conn.execute(f"""
+            SELECT DATE(sale_date, {utc_offset_sql()}) AS day, COUNT(*) AS sales_count,
                    COALESCE(SUM(total - discount), 0) AS revenue
             FROM sales WHERE sale_date >= ?
-            GROUP BY DATE(sale_date) ORDER BY day ASC
+            GROUP BY day ORDER BY day ASC
         """, [since]).fetchall()
         return jsonify([dict(row) for row in rows])
     finally:
@@ -42,8 +46,8 @@ def monthly_revenue():
     since = request.args.get('since')
     conn = get_db()
     try:
-        rows = conn.execute("""
-            SELECT strftime('%Y-%m', sale_date) AS month, COUNT(*) AS sales_count,
+        rows = conn.execute(f"""
+            SELECT strftime('%Y-%m', sale_date, {utc_offset_sql()}) AS month, COUNT(*) AS sales_count,
                    COALESCE(SUM(total - discount), 0) AS revenue
             FROM sales WHERE sale_date >= ?
             GROUP BY month ORDER BY month ASC

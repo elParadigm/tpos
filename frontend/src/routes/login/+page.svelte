@@ -21,7 +21,7 @@
             });
             const data = await res.json();
             if (!res.ok) { error = data.error || 'Code PIN incorrect'; return; }
-            currentWorker.set(data);
+            currentWorker.set({ id: data.id, name: data.name, role: data.role, token: data.token });
             goto('/pos');
         } catch (e) {
             error = 'Erreur de connexion au serveur';

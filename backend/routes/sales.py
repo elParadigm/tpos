@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from database import get_db
+from database import get_db, utc_offset_sql
 from audit import log_action
 
 sales_bp = Blueprint('sales', __name__)
@@ -58,12 +58,12 @@ def get_sale(id):
 def sales_by_date(date):
     conn = get_db()
     try:
-        rows = conn.execute("""
+        rows = conn.execute(f"""
             SELECT s.id, s.sale_date, s.total - s.discount AS net_total,
                    s.payment_method, c.name AS customer_name
             FROM sales s
             LEFT JOIN customers c ON c.id = s.customer_id
-            WHERE DATE(s.sale_date) = DATE(?)
+            WHERE DATE(s.sale_date, {utc_offset_sql()}) = DATE(?)
             ORDER BY s.sale_date DESC
         """, [date]).fetchall()
         return jsonify([dict(row) for row in rows])
@@ -93,12 +93,52 @@ def create_sale():
         if out_of_stock:
             return jsonify({'error': 'Stock insuffisant', 'details': out_of_stock}), 409
 
+        # --- Payment resolution (full / partial / credit) ---
+        # amount_paid: omitted or empty => full payment; 0 => nothing paid
+        # (credit); otherwise the amount actually collected.
+        total = float(data['total'])
+        discount = float(data.get('discount', 0))
+        net_total = total - discount
+        customer_id = data.get('customer_id')
+
+        amount_paid = data.get('amount_paid')
+        if amount_paid is None or amount_paid == '':
+            amount_paid = net_total
+        else:
+            amount_paid = float(amount_paid)
+
+        remaining = net_total - amount_paid
+        if remaining > 1e-9:
+            # Partial or no payment: the remainder becomes customer debt
+            if not customer_id:
+                return jsonify({'error': 'Veuillez sélectionner un client : ce paiement laisse un reste à payer.'}), 400
+            payment_method = 'credit'
+        else:
+            # Fully paid: a 'credit' method makes no sense here (nothing
+            # is owed), so fall back to cash.
+            payment_method = data.get('payment_method', 'cash')
+            if payment_method == 'credit':
+                payment_method = 'cash'
+            amount_paid = net_total
+            remaining = 0
+
         cursor = conn.execute("""
             INSERT INTO sales (total, discount, payment_method, customer_id, notes, created_by)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, [data['total'], data.get('discount', 0), data.get('payment_method', 'cash'),
-              data.get('customer_id'), data.get('notes'), data.get('created_by')])
+        """, [data['total'], data.get('discount', 0), payment_method,
+              customer_id, data.get('notes'), data.get('created_by')])
         sale_id = cursor.lastrowid
+
+        # On a credit/partial sale, record what was actually collected now.
+        # The payment is linked to the sale so that deleting the sale also
+        # removes the payment (no orphaned balances).
+        if payment_method == 'credit' and amount_paid > 0 and customer_id:
+            conn.execute("""
+                INSERT INTO customer_payments (customer_id, amount, notes, created_by, sale_id)
+                VALUES (?, ?, ?, ?, ?)
+            """, [customer_id, amount_paid, 'Paiement immédiat à la vente',
+                  data.get('created_by'), sale_id])
+
         for item in data.get('items', []):
             if item.get('barcode'):
                 conn.execute("""
@@ -115,7 +155,7 @@ def create_sale():
                 """, [sale_id, item['custom_name'], item.get('custom_cost'),
                       item['quantity'], item['unit_price'], item.get('discount', 0)])
         conn.commit()
-        log_action('SALE', f"Vente #{sale_id} effectuée pour un montant total de {data['total']} DT (Méthode: {data.get('payment_method', 'cash')})",
+        log_action('SALE', f"Vente #{sale_id} effectuée pour un montant total de {data['total']} DT (Méthode: {payment_method}, Payé: {amount_paid})",
                     worker_id=data.get('created_by'))
         return jsonify({'message': 'created', 'id': sale_id, 'sale_id': sale_id}), 201
     except Exception as e:
@@ -140,8 +180,13 @@ def delete_sale(id):
                 [item['quantity'], item['barcode']]
             )
 
+        # The sale's immediate customer_payments (sale_id FK) are removed
+        # by ON DELETE CASCADE, so customer balances stay consistent.
         conn.execute("DELETE FROM sales WHERE id = ?", [id])
         conn.commit()
+        body = request.get_json(silent=True) or {}
+        log_action('SALE', f"Vente #{id} annulée / supprimée (stock restitué)",
+                   worker_id=body.get('created_by'))
         return jsonify({'message': 'deleted'})
     except Exception as e:
         conn.rollback()

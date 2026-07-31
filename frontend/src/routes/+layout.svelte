@@ -3,8 +3,8 @@
 	import { goto } from "$app/navigation";
 	import { currentWorker, logout } from "$lib/auth";
 	import StockAlerts from "$lib/StockAlerts.svelte";
+	import BackupAlert from "$lib/BackupAlert.svelte";
 	import KioskBar from "$lib/KioskBar.svelte";
-	import { onMount } from "svelte";
 	import { BASE } from "$lib/config";
 	import {
 		ScanBarcode,
@@ -36,16 +36,20 @@
 
 	let storeName = $state("TPOS Commerce");
 
-	onMount(async () => {
-		try {
-			const res = await fetch(`${BASE}/settings`);
-			if (res.ok) {
-				const data = await res.json();
-				if (data.store_name) storeName = data.store_name;
-			}
-		} catch (e) {
-			// keep default
-		}
+	// Fetch the business name once logged in. (The earlier onMount ran on
+	// the login page, before a token existed, so it always fell back to the
+	// default. Keying on $currentWorker re-fetches after login AND after a
+	// reload restores the session from localStorage.)
+	$effect(() => {
+		if (!$currentWorker) return;
+		fetch(`${BASE}/settings`)
+			.then((res) => (res.ok ? res.json() : null))
+			.then((data) => {
+				if (data?.store_name) storeName = data.store_name;
+			})
+			.catch(() => {
+				// keep default
+			});
 	});
 
 	$effect(() => {
@@ -75,17 +79,18 @@
 		<input id="drawer" type="checkbox" class="drawer-toggle" />
 		<div class="drawer-content flex flex-col">
 			<!-- Mobile topbar -->
-			<div class="navbar bg-base-100 shadow lg:hidden">
+			<div class="no-print navbar bg-base-100 shadow lg:hidden">
 				<label
 					for="drawer"
 					class="btn btn-ghost btn-square"
 				>
 					<Menu size="20" />
 				</label>
-				<span class="font-bold text-lg flex-1"
+				<span class="store-title flex-1"
 					>{storeName}</span
 				>
 				<StockAlerts />
+				<BackupAlert />
 			</div>
 			<!-- Page content -->
 			<KioskBar />
@@ -93,13 +98,13 @@
 				<slot />
 			</main>
 		</div>
-		<div class="drawer-side">
+		<div class="no-print drawer-side">
 			<label for="drawer" class="drawer-overlay"></label>
 			<ul
 				class="menu p-4 w-60 min-h-full bg-base-100 gap-1 text-base-content"
 			>
 				<li
-					class="menu-title text-xl font-black text-primary mb-2 tracking-wide border-b pb-2 border-base-200"
+					class="menu-title store-title font-black text-primary mb-2 tracking-tight border-b pb-2 border-base-200"
 				>
 					{storeName}
 				</li>
@@ -126,6 +131,7 @@
 							</span>
 						</div>
 						<StockAlerts />
+						<BackupAlert />
 					</div>
 				</li>
 

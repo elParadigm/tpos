@@ -419,7 +419,7 @@
 		<div class="flex flex-col md:flex-row gap-3 items-center">
 			<div class="relative w-full md:w-72">
 				<Search
-					class="absolute left-3 top-2.5 text-base-content/40"
+					class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40"
 					size="16"
 				/>
 				<input

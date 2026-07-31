@@ -5,32 +5,28 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<meta name="text-scale" content="scale" />
-	<link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet" />
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-	<script src="https://cdn.tailwindcss.com"></script>
-	<script>
-		tailwind.config = {
-			theme: {
-				extend: {
-					fontFamily: {
-						sans: ['Inter', 'system-ui', 'sans-serif'],
-						mono: ['Inter', 'system-ui', 'sans-serif'],
-					},
-					fontSize: {
-						xs: ['0.8rem', { lineHeight: '1.2rem' }],
-						sm: ['0.9rem', { lineHeight: '1.4rem' }],
-						base: ['1.05rem', { lineHeight: '1.6rem' }],
-						lg: ['1.2rem', { lineHeight: '1.7rem' }],
-						xl: ['1.4rem', { lineHeight: '1.8rem' }],
-						'2xl': ['1.6rem', { lineHeight: '2rem' }],
-					}
-				}
-			}
+	<link href="/app.css" rel="stylesheet" />
+	<script src="/chart.umd.min.js"></script>
+	<style>
+		/* Self-hosted Inter (variable, 400-800) — matches the former Google
+		   Fonts `wght@400..800` exactly, including the 900 -> 800 clamp. */
+		@font-face {
+			font-family: 'Inter';
+			font-style: normal;
+			font-display: swap;
+			font-weight: 400 800;
+			src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2-variations');
+			unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 		}
-	</script>
+		@font-face {
+			font-family: 'Inter';
+			font-style: normal;
+			font-display: swap;
+			font-weight: 400 800;
+			src: url('/fonts/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
+			unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+		}
+	</style>
 	<style>
 		html { font-size: 18px; }
 		html, body, .btn, .input, .select, .textarea, .badge, .card, .card-body, .card-title,
@@ -69,6 +65,14 @@ main, aside, header, footer, nav, article, .no-print, .only-print, .font-bold, .
 		.label { font-size: 0.9rem; }
 		.menu-title { font-size: 0.8rem; }
 
+		/* The store/business name in the sidebar — sized as a brand header,
+		   not a section label. */
+		.store-title {
+			font-size: 1.75rem !important;
+			font-weight: 800 !important;
+			line-height: 1.1;
+		}
+
 		.tab { font-size: 0.9rem; }
 
 		th, label, .label, .stat-title, .menu-title { font-weight: 600; }
@@ -80,6 +84,21 @@ main, aside, header, footer, nav, article, .no-print, .only-print, .font-bold, .
 			font-weight: 700;
 			text-transform: uppercase;
 			letter-spacing: 0.04em;
+		}
+
+		/* Print: hide all app chrome (top bar, shutdown/power menu,
+		   sidebar, mobile navbar) and keep only the printable receipt */
+		@media print {
+			.no-print,
+			.navbar,
+			.drawer-side,
+			.kiosk-bar {
+				display: none !important;
+			}
+			main {
+				background: #ffffff !important;
+				min-height: 0 !important;
+			}
 		}
 	</style>
 	%sveltekit.head%

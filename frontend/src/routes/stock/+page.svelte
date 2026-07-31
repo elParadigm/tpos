@@ -18,6 +18,12 @@
 	let amount_paid = $state("");
 	let notes = $state("");
 
+	// --- Inline "new supplier" form ---
+	let showNewSupplier = $state(false);
+	let newSupplierName = $state("");
+	let newSupplierPhone = $state("");
+	let supplierSaving = $state(false);
+
 	let items = $state([]);
 	let newItem = $state({
 		barcode: "",
@@ -98,6 +104,46 @@
 	async function loadUnpaid() {
 		const res = await fetch(`${BASE}/deliveries/unpaid`);
 		unpaid = await res.json();
+	}
+
+	function cancelNewSupplier() {
+		showNewSupplier = false;
+		newSupplierName = "";
+		newSupplierPhone = "";
+	}
+
+	async function createSupplier() {
+		if (!newSupplierName.trim()) {
+			error = "Le nom du fournisseur est obligatoire";
+			return;
+		}
+		supplierSaving = true;
+		error = "";
+		try {
+			const res = await fetch(`${BASE}/suppliers`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: newSupplierName.trim(),
+					phone: newSupplierPhone.trim(),
+				}),
+			});
+			const data = await res.json();
+			if (data.error) {
+				error = data.error;
+				return;
+			}
+			const createdName = newSupplierName.trim();
+			cancelNewSupplier();
+			await loadSuppliers();
+			// Select the freshly created supplier
+			const created = suppliers.find((s) => s.name === createdName);
+			if (created) supplier_id = String(created.id);
+		} catch (e) {
+			error = "Erreur de connexion au serveur";
+		} finally {
+			supplierSaving = false;
+		}
 	}
 
 	let totalDue = $derived(
@@ -384,6 +430,7 @@
 													entry;
 												paymentAmount =
 													entry.remaining;
+												paymentNotes = "";
 											}}
 										>
 											<CreditCard
@@ -436,21 +483,87 @@
 						for="supplier-select"
 						>Fournisseur *</label
 					>
-					<select
-						id="supplier-select"
-						class="select select-bordered w-full"
-						bind:value={supplier_id}
-					>
-						<option value=""
-							>Sélectionner un
-							Fournisseur</option
+					<div class="flex gap-2 items-center">
+						<select
+							id="supplier-select"
+							class="select select-bordered w-full"
+							bind:value={supplier_id}
 						>
-						{#each suppliers as s}
-							<option value={s.id}
-								>{s.name}</option
+							<option value=""
+								>Sélectionner un
+								Fournisseur</option
 							>
-						{/each}
-					</select>
+							{#each suppliers as s}
+								<option value={s.id}
+									>{s.name}</option
+								>
+							{/each}
+						</select>
+						<button
+							type="button"
+							class="btn btn-sm btn-outline btn-primary shrink-0"
+							title="Nouveau fournisseur"
+							onclick={() => {
+								error = "";
+								showNewSupplier =
+									!showNewSupplier;
+							}}
+						>
+							<Plus size="16" />
+						</button>
+					</div>
+
+					{#if showNewSupplier}
+						<div
+							class="mt-2 p-3 border border-base-300 rounded-lg bg-base-100 flex flex-col gap-2"
+						>
+							<p
+								class="text-xs font-bold text-base-content/70"
+							>
+								Nouveau Fournisseur
+							</p>
+							<input
+								type="text"
+								class="input input-sm input-bordered w-full"
+								placeholder="Nom du fournisseur *"
+								bind:value={newSupplierName}
+							/>
+							<input
+								type="text"
+								class="input input-sm input-bordered w-full"
+								placeholder="Téléphone (optionnel)"
+								bind:value={newSupplierPhone}
+							/>
+							<div
+								class="flex justify-end gap-2"
+							>
+								<button
+									type="button"
+									class="btn btn-xs btn-ghost"
+									onclick={cancelNewSupplier}
+								>
+									Annuler
+								</button>
+								<button
+									type="button"
+									class="btn btn-xs btn-primary font-bold"
+									onclick={createSupplier}
+									disabled={supplierSaving}
+								>
+									{#if supplierSaving}
+										<span
+											class="loading loading-spinner loading-xs"
+										></span>
+									{:else}
+										<Check
+											size="12"
+										/>
+									{/if}
+									Créer
+								</button>
+							</div>
+						</div>
+					{/if}
 				</div>
 				<div class="form-control">
 					<label
@@ -579,6 +692,24 @@
 										</div>
 									</button>
 								{/each}
+							</div>
+						{/if}
+
+						<!-- No matching product: point the cashier to the catalog -->
+						{#if productDropdownOpen && productSearchQuery.trim() && filteredProductsForDropdown.length === 0}
+							<div
+								class="product-dropdown absolute z-50 w-full mt-1 px-3 py-3 bg-base-100 border border-base-300 rounded-lg shadow-lg text-sm"
+							>
+								<p class="font-semibold">
+									Aucun produit trouvé pour
+									« {productSearchQuery.trim()} »
+								</p>
+								<a
+									href="/settings/products"
+									class="link link-primary font-bold text-xs"
+								>
+									Créer ce produit dans le catalogue →
+								</a>
 							</div>
 						{/if}
 					</div>

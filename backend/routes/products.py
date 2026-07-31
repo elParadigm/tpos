@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from database import get_db
+from audit import log_action
 
 products_bp = Blueprint('products', __name__)
 
@@ -76,6 +77,8 @@ def create_product():
         """, [data['barcode'], data['name'], data.get('category_id'), data.get('cost_price', 0),
               data['sell_price'], data.get('quantity', 0), data.get('min_stock', 5), data.get('description')])
         conn.commit()
+        log_action('PRODUCT', f"Création du produit {data.get('name')} ({data.get('barcode')})",
+                   worker_id=data.get('created_by'))
         return jsonify({'message': 'created'}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -94,6 +97,8 @@ def update_product(barcode):
         """, [data['name'], data.get('category_id'), data['sell_price'],
               data.get('min_stock', 5), data.get('description'), barcode])
         conn.commit()
+        log_action('PRODUCT', f"Modification du produit {data.get('name')} ({barcode})",
+                   worker_id=data.get('created_by'))
         return jsonify({'message': 'updated'})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -103,11 +108,14 @@ def update_product(barcode):
 
 @products_bp.route('/products/<barcode>/deactivate', methods=['PUT'])
 def deactivate_product(barcode):
+    data = request.get_json(silent=True) or {}
     conn = get_db()
     try:
         conn.execute(
             "UPDATE products SET is_active = 0 WHERE barcode = ?", [barcode])
         conn.commit()
+        log_action('PRODUCT', f"Désactivation du produit {barcode}",
+                   worker_id=data.get('created_by'))
         return jsonify({'message': 'deactivated'})
     finally:
         conn.close()
@@ -115,11 +123,14 @@ def deactivate_product(barcode):
 
 @products_bp.route('/products/<barcode>/reactivate', methods=['PUT'])
 def reactivate_product(barcode):
+    data = request.get_json(silent=True) or {}
     conn = get_db()
     try:
         conn.execute(
             "UPDATE products SET is_active = 1 WHERE barcode = ?", [barcode])
         conn.commit()
+        log_action('PRODUCT', f"Réactivation du produit {barcode}",
+                   worker_id=data.get('created_by'))
         return jsonify({'message': 'reactivated'})
     finally:
         conn.close()

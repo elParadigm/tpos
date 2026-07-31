@@ -85,11 +85,16 @@
 		}
 		error = "";
 		if (editingId) {
-			await fetch(`${BASE}/customers/${editingId}`, {
+			const res = await fetch(`${BASE}/customers/${editingId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ name, phone, notes }),
 			});
+			if (!res.ok) {
+				const data = await res.json();
+				error = data.error || "Erreur lors de la mise à jour";
+				return;
+			}
 		} else {
 			const res = await fetch(`${BASE}/customers`, {
 				method: "POST",
@@ -122,14 +127,27 @@
 
 	async function submitPayment() {
 		if (!paymentAmount) return;
-		await fetch(`${BASE}/customers/${payingCustomer.id}/payments`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				amount: parseFloat(paymentAmount),
-				notes: paymentNotes,
-			}),
-		});
+		try {
+			const res = await fetch(
+				`${BASE}/customers/${payingCustomer.id}/payments`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						amount: parseFloat(paymentAmount),
+						notes: paymentNotes,
+					}),
+				},
+			);
+			if (!res.ok) {
+				const data = await res.json();
+				alert(data.error || "Erreur lors de l'enregistrement du paiement");
+				return;
+			}
+		} catch (e) {
+			alert("Erreur de connexion au serveur");
+			return;
+		}
 		payingCustomer = null;
 		await load();
 	}

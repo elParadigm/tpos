@@ -23,7 +23,6 @@ apt-get install -y -qq \
   xorg openbox \
   firefox-esr \
   python3 python3-pip python3-venv \
-  nodejs npm \
   sqlite3 \
   cups printer-driver-gutenprint printer-driver-hpcups \
   printer-driver-brlaser printer-driver-cups-pdf \
@@ -33,12 +32,24 @@ apt-get install -y -qq \
   network-manager \
   lightdm 2>/dev/null || true
 
+# Node 22 LTS (Vite 8 requires Node >= 20.19 / >= 22.12; Debian 12's apt nodejs is Node 18)
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash - 2>/dev/null
+apt-get install -y -qq nodejs
+
 # ---- Create user ----
 echo "[2/8] Creating kiosk user..."
 if ! id "$TPOS_USER" &>/dev/null; then
   useradd -m -s /bin/bash "$TPOS_USER"
-  echo "${TPOS_USER}:${TPOS_USER}" | chpasswd
 fi
+
+# Restricted sudo: allow the kiosk user to power off / reboot ONLY.
+# 'TPOS_ALLOW_SUDO=1' opts into a full sudo NOPASSWD for this user.
+if [ "$TPOS_ALLOW_SUDO" = "1" ]; then
+  echo "${TPOS_USER} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/tpos
+else
+  echo "${TPOS_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff, /usr/bin/systemctl reboot" > /etc/sudoers.d/tpos
+fi
+chmod 440 /etc/sudoers.d/tpos
 
 # ---- Deploy app files ----
 echo "[3/8] Deploying TPOS application..."
@@ -81,6 +92,13 @@ su - "$TPOS_USER" -c "
   npm install -q 2>/dev/null
   npm run build -q 2>/dev/null
 " || echo "Frontend build done (warnings ignored)"
+
+# Serve the built SPA from Flask's /backend/static/
+echo "      Deploying SPA to backend/static/ ..."
+rm -rf "$TPOS_DIR/backend/static"
+mkdir -p "$TPOS_DIR/backend/static"
+cp -r "$TPOS_DIR/frontend/build/"* "$TPOS_DIR/backend/static/" 2>/dev/null || true
+chown -R "${TPOS_USER}:${TPOS_USER}" "$TPOS_DIR/backend/static"
 
 # ---- Kiosk auto-start configuration ----
 echo "[6/8] Configuring kiosk auto-start..."
